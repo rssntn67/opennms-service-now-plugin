@@ -1,0 +1,32 @@
+*~
+.swp
+.*.swp
+.swp
+.gwt
+.gwt-tmp
+target
+.classpath
+.externalToolBuilders
+.project
+.settings
+.springBeans
+.vscode
+.DS_Store
+*.iml
+*.iws
+*.ipr
+.launch
+.*launch
+.idea
+.jqwik-database
+npm-debug.log
+yarn-error.log
+.factorypath
+.password
+
+# Ignore jenv local version files
+.java-version
+
+# Antora artifacts
+/build/
+/public/
