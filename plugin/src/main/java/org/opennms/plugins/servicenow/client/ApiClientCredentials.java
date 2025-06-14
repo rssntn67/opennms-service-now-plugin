@@ -26,14 +26,11 @@ public class ApiClientCredentials {
      */
     public final Boolean ignoreSslCertificateValidation;
 
-    public final Integer length;
-
     private ApiClientCredentials(final Builder builder) {
         this.url = Objects.requireNonNull(builder.url);
         this.username = builder.username;
         this.password = builder.password;
         this.ignoreSslCertificateValidation = builder.ignoreSslCertificateValidation;
-        this.length = builder.length;
     }
 
     public static class Builder {
@@ -42,8 +39,6 @@ public class ApiClientCredentials {
         private String password;
 
         private boolean ignoreSslCertificateValidation = false;
-
-        private int length = 20;
 
         private Builder() {
         }
@@ -69,11 +64,6 @@ public class ApiClientCredentials {
             return this;
         }
 
-        public Builder withLength(final int length){
-            this.length=length;
-            return this;
-        }
-
         public ApiClientCredentials build() {
             return new ApiClientCredentials(this);
         }
@@ -88,8 +78,7 @@ public class ApiClientCredentials {
                 .withUrl(credentials.url)
                 .withUsername(credentials.username)
                 .withPassword(credentials.password)
-                .withIgnoreSslCertificateValidation(credentials.ignoreSslCertificateValidation)
-                .withLength(credentials.length);
+                .withIgnoreSslCertificateValidation(credentials.ignoreSslCertificateValidation);
 
     }
 
@@ -100,7 +89,6 @@ public class ApiClientCredentials {
                 ", username='" + username + '\'' +
                 ", password='" + password + '\'' +
                 ", ignoreSslCertificateValidation=" + ignoreSslCertificateValidation +
-                ", length=" + length +
                 '}';
     }
 

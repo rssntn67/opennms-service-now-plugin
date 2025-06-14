@@ -22,6 +22,8 @@ import org.opennms.integration.api.v1.model.immutables.ImmutableAlarm;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import org.opennms.plugins.servicenow.client.ApiClient;
 import org.opennms.plugins.servicenow.client.ApiClientCredentials;
+import org.opennms.plugins.servicenow.client.ApiClientProvider;
+import org.opennms.plugins.servicenow.connection.ConnectionManager;
 
 public class AlarmForwarderIT {
 
@@ -36,11 +38,11 @@ public class AlarmForwarderIT {
                 .withUsername("username")
                 .withPassword("password")
                 .withIgnoreSslCertificateValidation(true)
-                .withLength(30)
                 .build();
-        ApiClient apiClient = new ApiClient(apiClientCredentials);
         EventForwarder eventForwarder = mock(EventForwarder.class);
-        AlarmForwarder alarmForwarder = new AlarmForwarder(apiClient, eventForwarder);
+        ConnectionManager connectionManager = mock(ConnectionManager.class);
+        ApiClientProvider apiClientProvider = mock(ApiClientProvider.class);
+        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager,apiClientProvider, eventForwarder);
 
         // Stub the endpoint
         stubFor(post((urlEqualTo("/data/v2/alerts")))

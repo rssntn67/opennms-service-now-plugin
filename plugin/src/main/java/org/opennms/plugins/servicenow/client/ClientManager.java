@@ -20,25 +20,19 @@ public class ClientManager {
 
     public Optional<ConnectionValidationError> validate(Connection connection) {
         boolean validated = clientProvider.validate(asApiClientCredentials(connection));
-        LOG.info("validate: {} -> {}", connection.getAlias(), validated);
+        LOG.info("validate: {}", validated);
         if (validated) {
             return Optional.empty();
         }
         return Optional.of(new ConnectionValidationError("Connection could not be validated"));
     }
 
-
-    public ApiClientService getClientService(Connection connection) throws ApiException {
-        return clientProvider.client(asApiClientCredentials(connection));
-    }
-
-    private static ApiClientCredentials asApiClientCredentials(Connection connection) {
+    public static ApiClientCredentials asApiClientCredentials(Connection connection) {
         return ApiClientCredentials.builder()
                 .withUsername(connection.getUsername())
                 .withPassword(connection.getPassword())
                 .withUrl(connection.getUrl())
                 .withIgnoreSslCertificateValidation(connection.isIgnoreSslCertificateValidation())
-                .withValidity(connection.getValidityTime())
                 .build();
     }
 

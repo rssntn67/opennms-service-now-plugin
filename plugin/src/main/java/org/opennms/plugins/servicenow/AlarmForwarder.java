@@ -9,6 +9,10 @@ import org.opennms.integration.api.v1.model.Alarm;
 import org.opennms.integration.api.v1.model.immutables.ImmutableEventParameter;
 import org.opennms.integration.api.v1.model.immutables.ImmutableInMemoryEvent;
 import org.opennms.plugins.servicenow.client.ApiClient;
+import org.opennms.plugins.servicenow.client.ApiClientProvider;
+import org.opennms.plugins.servicenow.client.ApiException;
+import org.opennms.plugins.servicenow.client.ClientManager;
+import org.opennms.plugins.servicenow.connection.ConnectionManager;
 import org.opennms.plugins.servicenow.model.Alert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,11 +31,13 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     private final Meter eventsForwarded = metrics.meter("eventsForwarded");
     private final Meter eventsFailed = metrics.meter("eventsFailed");
 
-    private final ApiClient apiClient;
+    private final ConnectionManager connectionManager;
+    private final ApiClientProvider apiClientProvider;
     private final EventForwarder eventForwarder;
 
-    public AlarmForwarder(ApiClient apiClient, EventForwarder eventForwarder) {
-        this.apiClient = Objects.requireNonNull(apiClient);
+    public AlarmForwarder(ConnectionManager connectionManager, ApiClientProvider apiClientProvider, EventForwarder eventForwarder) {
+        this.connectionManager = Objects.requireNonNull(connectionManager);
+        this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
         this.eventForwarder = Objects.requireNonNull(eventForwarder);
     }
 
@@ -44,6 +50,13 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
         // Map the alarm to the corresponding model object that the API requires
         Alert alert = toAlert(alarm);
+        ApiClient apiClient = null;
+        try {
+            apiClient = apiClientProvider.client(ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
+        } catch (ApiException e) {
+            LOG.warn("handleNewOrUpdatedAlarm: {} no forward: {}", alert, e.getResponseBody());
+            return;
+        }
 
         // Forward the alarm
         apiClient.sendAlert(alert).whenComplete((v,ex) -> {

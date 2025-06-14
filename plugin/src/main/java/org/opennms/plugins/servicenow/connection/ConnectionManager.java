@@ -13,8 +13,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public class ConnectionManager {
 
@@ -22,6 +20,7 @@ public class ConnectionManager {
     public static final String URL_KEY = "url";
     public static final String IGNORE_SSL_CERTIFICATE_VALIDATION_KEY = "ignoreSslCertificateValidation";
 
+    public static final  String alias = "Default";
     private final RuntimeInfo runtimeInfo;
     private final SecureCredentialsVault vault;
 
@@ -32,50 +31,33 @@ public class ConnectionManager {
     }
 
     /**
-     * Returns a set of all available connection aliases.
-     *
-     * @return the set of aliases
-     */
-    public Set<String> getAliases() {
-        this.ensureCore();
-
-        return this.vault.getAliases().stream()
-                .filter(alias -> alias.startsWith(PREFIX))
-                .map(alias -> alias.substring(PREFIX.length()))
-                .collect(Collectors.toSet());
-    }
-
-    /**
      * Returns a connection config for the given alias.
      *
-     * @param alias the alias of the connection config to retrieve
      * @return The connection config or {@code Optional#empty()} of no such alias exists
      */
-    public Optional<Connection> getConnection(final String alias) {
+    public Optional<Connection> getConnection() {
         this.ensureCore();
 
-        final var credentials = this.vault.getCredentials(PREFIX + alias.toLowerCase());
+        final var credentials = this.vault.getCredentials(PREFIX + alias);
         if (credentials == null) {
             return Optional.empty();
         }
-        ConnectionImpl conn = new ConnectionImpl(alias, fromStore(credentials));
+        ConnectionImpl conn = new ConnectionImpl(fromStore(credentials));
         return Optional.of(conn);
     }
 
     /**
      * Creates a basic authentication connection under the given alias.
      *
-     * @param alias           the alias of the connection to add
      * @param url        the URL of the prism server
      * @param username          the username to authenticate the connection
      * @param password          the password to authenticate the connection
      * @param ignoreSslCerticateValidation          ignore Ssl Certificate Validation
-     * @param validity          time in seconds before cucs session need to be refreshed
      */
-    public Connection newConnection(final String alias, final String url, final String username, final String password, final boolean ignoreSslCerticateValidation, final int validity) {
+    public Connection newConnection(final String url, final String username, final String password, final boolean ignoreSslCerticateValidation) {
         this.ensureCore();
 
-        return new ConnectionImpl(alias, ApiClientCredentials.builder()
+        return new ConnectionImpl(ApiClientCredentials.builder()
                 .withUrl(url)
                 .withUsername(username)
                 .withPassword(password)
@@ -86,14 +68,13 @@ public class ConnectionManager {
     /**
      * Deletes a connection under the given alias.
      *
-     * @param alias the alias of the connection to delete
      * @return <b>true</b> if an existing connection with given alias was found and deleted and <b>false</b> if no
      * connection with given alias was not found
      */
-    public boolean deleteConnection(final String alias) {
+    public boolean deleteConnection() {
         this.ensureCore();
 
-        final var connection = this.getConnection(alias);
+        final var connection = this.getConnection();
         if (connection.isEmpty()) {
             return false;
         }
@@ -112,7 +93,7 @@ public class ConnectionManager {
         }
 
         if (Strings.isNullOrEmpty(credentials.getAttribute(URL_KEY))) {
-            throw new IllegalStateException("Cisco Ucs Manager URL is missing");
+            throw new IllegalStateException("URL is missing");
         }
 
         if (Strings.isNullOrEmpty(credentials.getAttribute(IGNORE_SSL_CERTIFICATE_VALIDATION_KEY))) {
@@ -135,12 +116,9 @@ public class ConnectionManager {
 
 
     private class ConnectionImpl implements Connection {
-        private final String alias;
-
         private ApiClientCredentials credentials;
 
-        private ConnectionImpl(final String alias, final ApiClientCredentials credentials) {
-            this.alias = Objects.requireNonNull(alias).toLowerCase();
+        private ConnectionImpl(final ApiClientCredentials credentials) {
             this.credentials = Objects.requireNonNull(credentials);
         }
 
@@ -154,11 +132,6 @@ public class ConnectionManager {
             this.credentials = ApiClientCredentials.builder(this.credentials)
                     .withIgnoreSslCertificateValidation(ignoreSslCertificateValidation)
                     .build();
-        }
-
-        @Override
-        public String getAlias() {
-            return this.alias;
         }
 
         @Override
@@ -198,13 +171,12 @@ public class ConnectionManager {
 
         @Override
         public void save() {
-            // Purge cached client with old credentials
-            ConnectionManager.this.vault.setCredentials(PREFIX + this.alias, this.asCredentials());
+            ConnectionManager.this.vault.setCredentials(PREFIX + ConnectionManager.alias, this.asCredentials());
         }
 
         @Override
         public void delete() {
-            ConnectionManager.this.vault.deleteCredentials(PREFIX + this.alias);
+            ConnectionManager.this.vault.deleteCredentials(PREFIX + ConnectionManager.alias);
         }
 
         private Credentials asCredentials() {
@@ -217,7 +189,7 @@ public class ConnectionManager {
         @Override
         public String toString() {
             return MoreObjects.toStringHelper(this)
-                              .add("alias", this.alias)
+                              .add("alias", ConnectionManager.alias)
                               .add(URL_KEY, this.credentials.url)
                               .add("username", this.credentials.username)
                               .add("password", "******")
