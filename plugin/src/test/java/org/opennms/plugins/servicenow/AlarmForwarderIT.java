@@ -20,6 +20,7 @@ import org.opennms.integration.api.v1.model.Severity;
 import org.opennms.integration.api.v1.model.immutables.ImmutableAlarm;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import org.opennms.plugins.servicenow.model.ApiClientCredentials;
 
 public class AlarmForwarderIT {
 
@@ -29,7 +30,14 @@ public class AlarmForwarderIT {
     @Test
     public void canForwardAlarm() {
         // Wire it up
-        ApiClient apiClient = new ApiClient(wireMockRule.url("/data/v2/alerts"), "<some-token>");
+        ApiClientCredentials apiClientCredentials = ApiClientCredentials.builder()
+                .withUrl(wireMockRule.url("/"))
+                .withUsername("username")
+                .withPassword("password")
+                .withIgnoreSslCertificateValidation(true)
+                .withLength(30)
+                .build();
+        ApiClient apiClient = new ApiClient(apiClientCredentials);
         EventForwarder eventForwarder = mock(EventForwarder.class);
         AlarmForwarder alarmForwarder = new AlarmForwarder(apiClient, eventForwarder);
 

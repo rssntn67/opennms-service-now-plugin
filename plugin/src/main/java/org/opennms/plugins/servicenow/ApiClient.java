@@ -4,8 +4,11 @@ import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
+import okhttp3.Authenticator;
+import okhttp3.Credentials;
+import okhttp3.Route;
 import org.opennms.plugins.servicenow.model.Alert;
-import org.opennms.plugins.servicenow.model.Topology;
+import org.opennms.plugins.servicenow.model.ApiClientCredentials;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,22 +28,28 @@ public class ApiClient {
 
     private final OkHttpClient client;
     private final ObjectMapper mapper = new ObjectMapper();
-    private String url;
-    private String apiKey;
+    private final ApiClientCredentials apiClientCredentials;
+    private final static String alertEndPoint = "crea_aggiorna_allarmi";
 
-    public ApiClient(String url, String apiKey) {
-        this.url = Objects.requireNonNull(url);
-        this.apiKey = Objects.requireNonNull(apiKey);
-        this.client = new OkHttpClient();
+    public ApiClient(ApiClientCredentials apiClientCredentials) {
+        this.apiClientCredentials = Objects.requireNonNull(apiClientCredentials);
+        this.client = new OkHttpClient.Builder()
+                .authenticator(new Authenticator() {
+                    @Override
+                    public Request authenticate(Route route, Response response) throws IOException {
+                        String credential = Credentials.basic(apiClientCredentials.username, apiClientCredentials.password);
+                        return response.request().newBuilder()
+                                .header("Authorization", credential)
+                                .build();
+                    }
+                })
+                .build();
     }
 
     public CompletableFuture<Void> sendAlert(Alert alert) {
-        return doPost(url, alert);
+        return doPost(ApiClient.alertEndPoint, alert);
     }
 
-    public CompletableFuture<Void> forwardTopology(Topology topology) {
-        return doPost(url, topology);
-    }
 
     private CompletableFuture<Void> doPost(String url, Object requestBodyPayload) {
         RequestBody body;
@@ -49,16 +58,17 @@ public class ApiClient {
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
+        String credentials = Credentials.basic(apiClientCredentials.username,apiClientCredentials.password);
         Request request = new Request.Builder()
-                .url(url)
-                .addHeader("Accept", "application/json")
+                .url(apiClientCredentials.url+"/"+url)
+                .header("Authorization", credentials)                .addHeader("Accept", "application/json")
                 .addHeader("Content-Type", "application/json")
-                .addHeader("Authorization", "Bearer " + apiKey)
                 .addHeader("User-Agent", ApiClient.class.getCanonicalName())
                 .post(body)
                 .build();
 
         CompletableFuture<Void> future = new CompletableFuture<>();
+
         client.newCall(request)
                 .enqueue(new Callback() {
                     @Override

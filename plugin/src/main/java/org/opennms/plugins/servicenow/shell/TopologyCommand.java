@@ -7,8 +7,6 @@ import org.apache.karaf.shell.api.action.Action;
 import org.apache.karaf.shell.api.action.Command;
 import org.apache.karaf.shell.api.action.lifecycle.Reference;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
-import org.opennms.plugins.servicenow.TopologyForwarder;
-import org.opennms.plugins.servicenow.model.Topology;
 
 @Command(scope = "opennms-opennms-service-now", name = "push-topology", description = "Push the topology")
 @Service
