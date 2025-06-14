@@ -19,7 +19,7 @@
     <reference id="eventForwarder" interface="org.opennms.integration.api.v1.events.EventForwarder" availability="optional"/>
 
     <!-- Build our API client -->
-    <bean id="apiClient" class="org.opennms.plugins.servicenow.ApiClient">
+    <bean id="apiClient" class="org.opennms.plugins.servicenow.client.ApiClient">
         <argument value="${url}"/>
         <argument value="${apiKey}"/>
     </bean>

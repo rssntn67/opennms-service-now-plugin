@@ -11,7 +11,7 @@ import org.opennms.plugins.servicenow.AlarmForwarder;
 import com.codahale.metrics.ConsoleReporter;
 import com.codahale.metrics.MetricRegistry;
 
-@Command(scope = "opennms-opennms-service-now", name = "stats", description = "Show statistics.")
+@Command(scope = "opennms-service-now", name = "stats", description = "Show statistics.")
 @Service
 public class StatsCommand implements Action {
 

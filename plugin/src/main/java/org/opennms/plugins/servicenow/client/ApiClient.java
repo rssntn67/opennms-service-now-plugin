@@ -1,4 +1,4 @@
-package org.opennms.plugins.servicenow;
+package org.opennms.plugins.servicenow.client;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -8,7 +8,6 @@ import okhttp3.Authenticator;
 import okhttp3.Credentials;
 import okhttp3.Route;
 import org.opennms.plugins.servicenow.model.Alert;
-import org.opennms.plugins.servicenow.model.ApiClientCredentials;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,10 +57,8 @@ public class ApiClient {
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
-        String credentials = Credentials.basic(apiClientCredentials.username,apiClientCredentials.password);
         Request request = new Request.Builder()
                 .url(apiClientCredentials.url+"/"+url)
-                .header("Authorization", credentials)                .addHeader("Accept", "application/json")
                 .addHeader("Content-Type", "application/json")
                 .addHeader("User-Agent", ApiClient.class.getCanonicalName())
                 .post(body)

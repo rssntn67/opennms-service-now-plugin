@@ -20,7 +20,8 @@ import org.opennms.integration.api.v1.model.Severity;
 import org.opennms.integration.api.v1.model.immutables.ImmutableAlarm;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import org.opennms.plugins.servicenow.model.ApiClientCredentials;
+import org.opennms.plugins.servicenow.client.ApiClient;
+import org.opennms.plugins.servicenow.client.ApiClientCredentials;
 
 public class AlarmForwarderIT {
 

@@ -5,7 +5,7 @@ import org.opennms.integration.api.v1.runtime.RuntimeInfo;
 import org.opennms.integration.api.v1.scv.Credentials;
 import org.opennms.integration.api.v1.scv.SecureCredentialsVault;
 import org.opennms.integration.api.v1.scv.immutables.ImmutableCredentials;
-import org.opennms.plugins.servicenow.model.ApiClientCredentials;
+import org.opennms.plugins.servicenow.client.ApiClientCredentials;
 import org.opennms.shaded.com.google.common.base.MoreObjects;
 import org.opennms.shaded.com.google.common.base.Strings;
 

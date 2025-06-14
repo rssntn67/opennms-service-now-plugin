@@ -8,6 +8,7 @@ import org.opennms.integration.api.v1.events.EventForwarder;
 import org.opennms.integration.api.v1.model.Alarm;
 import org.opennms.integration.api.v1.model.immutables.ImmutableEventParameter;
 import org.opennms.integration.api.v1.model.immutables.ImmutableInMemoryEvent;
+import org.opennms.plugins.servicenow.client.ApiClient;
 import org.opennms.plugins.servicenow.model.Alert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

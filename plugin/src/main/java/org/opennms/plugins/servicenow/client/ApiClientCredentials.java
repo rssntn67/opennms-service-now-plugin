@@ -1,4 +1,4 @@
-package org.opennms.plugins.servicenow.model;
+package org.opennms.plugins.servicenow.client;
 
 import java.util.Objects;
 
