@@ -1,8 +1,7 @@
 package org.opennms.plugins.servicenow;
 
-import java.util.List;
-import java.util.Objects;
-
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
 import org.opennms.integration.api.v1.alarms.AlarmLifecycleListener;
 import org.opennms.integration.api.v1.events.EventForwarder;
 import org.opennms.integration.api.v1.model.Alarm;
@@ -17,12 +16,15 @@ import org.opennms.plugins.servicenow.model.Alert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
+import java.util.List;
+import java.util.Objects;
 
 public class AlarmForwarder implements AlarmLifecycleListener {
     private static final Logger LOG = LoggerFactory.getLogger(AlarmForwarder.class);
 
+    private static final String ALARM_UEI_NODE_DOWN = "uei.opennms.org/nodes/nodeDown";
+    private static final String ALARM_UEI_INTERFACE_DOWN = "uei.opennms.org/nodes/interfaceDown";
+    private static final String ALARM_UEI_SERVICE_DOWN = "uei.opennms.org/nodes/nodeLostService";
     private static final String UEI_PREFIX = "uei.opennms.org/opennms-service-nowPlugin";
     private static final String SEND_EVENT_FAILED_UEI = UEI_PREFIX + "/sendEventFailed";
     private static final String SEND_EVENT_SUCCESSFUL_UEI = UEI_PREFIX + "/sendEventSuccessful";
@@ -49,8 +51,16 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         }
 
         // Map the alarm to the corresponding model object that the API requires
+        if (!alarm.getReductionKey().startsWith(ALARM_UEI_NODE_DOWN) &&
+            !alarm.getReductionKey().startsWith(ALARM_UEI_INTERFACE_DOWN) &&
+            !(alarm.getReductionKey().startsWith(ALARM_UEI_SERVICE_DOWN) && alarm.getReductionKey().endsWith("ICMP"))
+            )
+        {
+            return;
+        }
+
         Alert alert = toAlert(alarm);
-        ApiClient apiClient = null;
+        ApiClient apiClient;
         try {
             apiClient = apiClientProvider.client(ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
         } catch (ApiException e) {
@@ -102,25 +112,23 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         Alert alert = new Alert();
         alert.setStatus(toStatus(alarm));
         alert.setDescription(alarm.getDescription());
+        alert.setKey(alarm.getReductionKey());
+        alert.setAsset(alarm.getNode().getLabel());
         return alert;
     }
 
     private static Alert.Status toStatus(Alarm alarm) {
-        if (alarm.isAcknowledged()) {
-            return Alert.Status.ACKNOWLEDGED;
-        }
         switch (alarm.getSeverity()) {
             case INDETERMINATE:
             case CLEARED:
             case NORMAL:
-                return Alert.Status.OK;
+                return Alert.Status.UP;
             case WARNING:
             case MINOR:
-                return Alert.Status.WARNING;
             case MAJOR:
             case CRITICAL:
             default:
-                return Alert.Status.CRITICAL;
+                return Alert.Status.DOWN;
         }
     }
 

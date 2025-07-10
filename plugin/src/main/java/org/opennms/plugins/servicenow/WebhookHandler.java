@@ -15,9 +15,4 @@ public interface WebhookHandler {
     @Path("/ping")
     Response ping();
 
-    @POST
-    @Path("/hook")
-    @Produces({MediaType.APPLICATION_JSON})
-    @Consumes({MediaType.APPLICATION_JSON})
-    Response handleWebhook(String body);
 }

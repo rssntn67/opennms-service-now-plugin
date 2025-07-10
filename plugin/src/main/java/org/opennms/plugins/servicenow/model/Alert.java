@@ -24,14 +24,15 @@ public class Alert {
     @JsonSerialize(using = Status.Serializer.class)
     private Status status;
 
-    @JsonProperty("timestamp")
-    @JsonSerialize(using = InstantSerializer.class)
-    private Instant timestamp;
-
     @JsonProperty("description")
     private String description;
 
-    private Map<String,String> attributes = new LinkedHashMap<>();
+    @JsonProperty("asset")
+    private String asset;
+
+    @JsonProperty("message_key")
+    private String key;
+
 
     public Status getStatus() {
         return status;
@@ -39,14 +40,6 @@ public class Alert {
 
     public void setStatus(Status status) {
         this.status = status;
-    }
-
-    public Instant getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(Instant timestamp) {
-        this.timestamp = timestamp;
     }
 
     public String getDescription() {
@@ -57,18 +50,20 @@ public class Alert {
         this.description = description;
     }
 
-    @JsonAnyGetter
-    public Map<String, String> getAttributes() {
-        return attributes;
+    public String getKey() {
+        return key;
     }
 
-    @JsonAnySetter
-    public void setAttribute(String name, String value) {
-        attributes.put(name, value);
+    public void setKey(String key) {
+        this.key = key;
     }
 
-    public void setAttributes(Map<String, String> attributes) {
-        this.attributes = attributes;
+    public String getAsset() {
+        return asset;
+    }
+
+    public void setAsset(String asset) {
+        this.asset = asset;
     }
 
     @Override
@@ -77,31 +72,30 @@ public class Alert {
         if (o == null || getClass() != o.getClass()) return false;
         Alert alert = (Alert) o;
         return Objects.equals(status, alert.status) &&
-                Objects.equals(timestamp, alert.timestamp) &&
-                Objects.equals(description, alert.description) &&
-                Objects.equals(attributes, alert.attributes);
+                Objects.equals(key, alert.key) &&
+                Objects.equals(asset, alert.asset) &&
+                Objects.equals(description, alert.description)
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(status, timestamp, description, attributes);
+        return Objects.hash(status, asset, description, key);
     }
 
     @Override
     public String toString() {
         return "Alert{" +
                 "status='" + status + '\'' +
-                ", timestamp='" + timestamp + '\'' +
+                ", asset='" + asset + '\'' +
                 ", description='" + description + '\'' +
-                ", attributes=" + attributes +
+                ", key=" + key +
                 '}';
     }
 
+
     public enum Status {
-        OK,
-        CRITICAL,
-        WARNING,
-        ACKNOWLEDGED;
+        UP,
+        DOWN;
 
         public static class Serializer extends StdSerializer<Status> {
             protected Serializer() {
@@ -110,7 +104,13 @@ public class Alert {
 
             @Override
             public void serialize(Status status, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
-                jsonGenerator.writeString(status.name().toLowerCase());
+                switch (status) {
+                case UP:
+                    jsonGenerator.writeString("1");
+                    break;
+                case DOWN:
+                    jsonGenerator.writeString("0");
+                    break;
             }
         }
     }

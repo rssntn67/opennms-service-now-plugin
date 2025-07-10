@@ -13,10 +13,5 @@ public class WebhookHandlerImpl implements WebhookHandler {
         return Response.ok("pong").build();
     }
 
-    @Override
-    public Response handleWebhook(String body) {
-        LOG.debug("Got payload: {}", body);
-        return Response.ok().build();
-    }
 }
 

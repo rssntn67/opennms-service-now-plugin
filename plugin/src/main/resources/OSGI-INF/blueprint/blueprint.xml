@@ -5,42 +5,40 @@
                 http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.1.0
                 http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd">
 
-    <!-- Configuration stored in $OPENNMS_HOME/etc/org.opennms.plugins.servicenow.cfg file -->
-    <cm:property-placeholder id="opennms-service-nowPluginProperties" persistent-id="org.opennms.plugins.servicenow" update-strategy="reload">
-        <cm:default-properties>
-            <cm:property name="url" value="http://127.0.0.1:8888/target" />
-            <cm:property name="apiKey" value="TOKEN" />
-        </cm:default-properties>
-    </cm:property-placeholder>
-
     <!-- Pull in service implementations from the OSGi registry -->
     <reference id="alarmDao" interface="org.opennms.integration.api.v1.dao.AlarmDao" availability="optional"/>
     <reference id="edgeDao" interface="org.opennms.integration.api.v1.dao.EdgeDao" availability="optional"/>
     <reference id="eventForwarder" interface="org.opennms.integration.api.v1.events.EventForwarder" availability="optional"/>
 
     <!-- Build our API client -->
-    <bean id="apiClient" class="org.opennms.plugins.servicenow.client.ApiClient">
-        <argument value="${url}"/>
-        <argument value="${apiKey}"/>
+    <bean id="apiClientProvider" class="org.opennms.plugins.servicenow.client.ApiClientProviderImpl">
     </bean>
+    <service interface="org.opennms.plugins.servicenow.client.ApiClientProvider" ref="apiClientProvider"/>
+
+    <bean id="clientManager" class="org.opennms.plugins.servicenow.client.ClientManager">
+        <argument ref="apiClientProvider"/>
+    </bean>
+
+    <bean id="connectionManager" class="org.opennms.plugins.servicenow.connections.ConnectionManager">
+        <argument>
+            <reference interface="org.opennms.integration.api.v1.runtime.RuntimeInfo" availability="optional"/>
+        </argument>
+        <argument>
+            <reference interface="org.opennms.integration.api.v1.scv.SecureCredentialsVault" availability="optional"/>
+        </argument>
+    </bean>
+    <service ref="connectionManager" interface="org.opennms.plugins.servicenow.connections.ConnectionManager"/>
 
     <!-- Build our forwarder bean -->
     <bean id="alarmForwarder" class="org.opennms.plugins.servicenow.AlarmForwarder">
-        <argument ref="apiClient"/>
+        <argument ref="connectionManager"/>
+        <argument ref="apiClientProvider"/>
         <argument ref="eventForwarder"/>
     </bean>
     <!-- Expose the forwarder as a AlarmLifecycleListener so we get callbacks -->
     <service interface="org.opennms.integration.api.v1.alarms.AlarmLifecycleListener" ref="alarmForwarder"/>
     <!-- Expose the forwarder directly for access from our shell commands -->
     <service interface="org.opennms.plugins.servicenow.AlarmForwarder" ref="alarmForwarder"/>
-
-    <!-- Build our forwarder bean -->
-    <bean id="topologyForwarder" class="org.opennms.plugins.servicenow.TopologyForwarder">
-        <argument ref="apiClient"/>
-        <argument ref="edgeDao"/>
-    </bean>
-    <!-- Expose the forwarder directly for access from our shell commands -->
-    <service interface="org.opennms.plugins.servicenow.TopologyForwarder" ref="topologyForwarder"/>
 
     <!-- Build and expose the JAX-RS annotated webhook handler.
          This will automatically mount the endpoint over the REST API. -->
