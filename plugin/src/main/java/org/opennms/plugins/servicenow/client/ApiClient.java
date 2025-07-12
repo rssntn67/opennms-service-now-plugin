@@ -6,6 +6,7 @@ import java.util.concurrent.CompletableFuture;
 
 import okhttp3.Authenticator;
 import okhttp3.Credentials;
+import okhttp3.FormBody;
 import okhttp3.Route;
 import org.opennms.plugins.servicenow.model.Alert;
 
@@ -25,32 +26,48 @@ public class ApiClient {
 
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
+    private static final String TOKEN_URL = "https://example.com/oauth2/token";
     private final OkHttpClient client;
     private final ObjectMapper mapper = new ObjectMapper();
     private final ApiClientCredentials apiClientCredentials;
     private final static String alertEndPoint = "crea_aggiorna_allarmi";
-
+    private String accessToken;
     public ApiClient(ApiClientCredentials apiClientCredentials) {
         this.apiClientCredentials = Objects.requireNonNull(apiClientCredentials);
-        this.client = new OkHttpClient.Builder()
-                .authenticator(new Authenticator() {
-                    @Override
-                    public Request authenticate(Route route, Response response) throws IOException {
-                        String credential = Credentials.basic(apiClientCredentials.username, apiClientCredentials.password);
-                        return response.request().newBuilder()
-                                .header("Authorization", credential)
-                                .build();
-                    }
-                })
+        this.client = new OkHttpClient.Builder().build();
+    }
+
+    public void getAccessToken() throws IOException {
+        FormBody formBody = new FormBody.Builder()
+                .add("grant_type", "client_credentials")
+                .add("scope", "SCOPE")
                 .build();
-    }
+        String credential = Credentials.basic(apiClientCredentials.username, apiClientCredentials.password);
+        Request request = new Request.Builder()
+                .url(TOKEN_URL)
+                .post(formBody)
+                .header("Authorization", "Bearer " + accessToken)                .build();
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Unexpected code " + response);
+            }
 
+            // Parse the response to get the access token
+            assert response.body() != null;
+            String responseBody = response.body().string();
+            // In a real application, you'd use a JSON parser
+            // This is a simplified extraction
+            String accessToken = responseBody.split("\"access_token\":\"")[1].split("\"")[0];
+            System.out.println("Access Token: " + accessToken);
+            this.accessToken=accessToken;
+        }
+    }
     public CompletableFuture<Void> sendAlert(Alert alert) {
-        return doPost(ApiClient.alertEndPoint, alert);
+        return doPost(alert);
     }
 
 
-    private CompletableFuture<Void> doPost(String url, Object requestBodyPayload) {
+    private CompletableFuture<Void> doPost(Object requestBodyPayload) {
         RequestBody body;
         try {
             body = RequestBody.create(JSON, mapper.writeValueAsString(requestBodyPayload));
@@ -58,9 +75,8 @@ public class ApiClient {
             throw new RuntimeException(e);
         }
         Request request = new Request.Builder()
-                .url(apiClientCredentials.url+"/"+url)
-                .addHeader("Content-Type", "application/json")
-                .addHeader("User-Agent", ApiClient.class.getCanonicalName())
+                .url(apiClientCredentials.url+"/"+ ApiClient.alertEndPoint)
+                .header("Authorization", "Bearer " + accessToken)
                 .post(body)
                 .build();
 
