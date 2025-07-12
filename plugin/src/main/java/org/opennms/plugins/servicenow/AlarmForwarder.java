@@ -64,15 +64,15 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             return;
         }
 
-        Alert alert = toAlert(alarm);
         ApiClient apiClient;
         try {
             apiClient = apiClientProvider.client(ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
         } catch (ApiException e) {
-            LOG.warn("handleNewOrUpdatedAlarm: {} no forward: {}", alert, e.getResponseBody());
+            LOG.warn("handleNewOrUpdatedAlarm: {} no forward: {}", alarm, e.getResponseBody());
             return;
         }
 
+        Alert alert = toAlert(alarm);
         // Forward the alarm
         apiClient.sendAlert(alert).whenComplete((v,ex) -> {
             if (ex != null) {

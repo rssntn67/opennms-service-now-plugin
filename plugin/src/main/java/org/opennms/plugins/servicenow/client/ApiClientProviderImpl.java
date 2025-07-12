@@ -3,8 +3,7 @@ package org.opennms.plugins.servicenow.client;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.io.IOException;
 
 public class ApiClientProviderImpl implements ApiClientProvider {
 
@@ -32,7 +31,13 @@ public class ApiClientProviderImpl implements ApiClientProvider {
     }
 
     @Override
-    public boolean validate(ApiClientCredentials credentials) {
+    public boolean validate() {
+        try {
+            apiClient.getAccessToken();
+        } catch (IOException e) {
+            LOG.warn("validate: fails for {}", apiClientCredentials, e);
+            return false;
+        }
         return true;
     }
 }
