@@ -21,6 +21,6 @@ public class AlarmForwarderTest {
 
         Alert alert = AlarmForwarder.toAlert(alarm);
 
-        assertThat(alert.getStatus(), equalTo(Alert.Status.CRITICAL));
+        assertThat(alert.getSeverity(), equalTo(Alert.Severity.CRITICAL));
     }
 }

@@ -110,12 +110,36 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
     public static Alert toAlert(Alarm alarm) {
         Alert alert = new Alert();
-        alert.setStatus(toStatus(alarm));
+        alert.setSource(alarm.getNode().getLocation());
+        alert.setType("opennms network alarm");
+        alert.setSeverity(toSeverity(alarm));
+        alert.setMaintenance(false);
         alert.setDescription(alarm.getDescription());
-        alert.setKey(alarm.getReductionKey());
-        alert.setAsset(alarm.getNode().getLabel());
+        alert.setMetricName(alarm.getReductionKey()+alarm.getId());
+        alert.setKey(alarm.getLogMessage());
+        alert.setResource(alarm.getNode().getId().toString());
+        alert.setNode(alarm.getNode().getLabel());
+        alert.setAsset(alarm.getNode().getAssetRecord().getDescription());
+        alert.setAlertTags(alarm.getNode().getCategories().toString());
+        alert.setStatus(toStatus(alarm));
         return alert;
     }
+
+    private static Alert.Severity toSeverity(Alarm alarm) {
+        switch (alarm.getSeverity()) {
+            case WARNING:
+                return Alert.Severity.WARNING;
+            case MINOR:
+                return Alert.Severity.MINOR;
+            case MAJOR:
+                return Alert.Severity.MAJOR;
+            case CRITICAL:
+                return Alert.Severity.CRITICAL;
+            default:
+                return Alert.Severity.NORMAL;
+        }
+    }
+
 
     private static Alert.Status toStatus(Alarm alarm) {
         switch (alarm.getSeverity()) {

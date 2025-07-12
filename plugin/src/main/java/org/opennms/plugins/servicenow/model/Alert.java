@@ -1,13 +1,5 @@
 package org.opennms.plugins.servicenow.model;
 
-import java.io.IOException;
-import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Objects;
-
-import com.fasterxml.jackson.annotation.JsonAnyGetter;
-import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -16,30 +8,81 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
+import java.io.IOException;
+import java.util.Objects;
+
 @JsonAutoDetect(fieldVisibility=JsonAutoDetect.Visibility.NONE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class Alert {
+
+    @JsonProperty("source")
+    private String source;
+
+    @JsonProperty("type")
+    private String type;
+
+    @JsonProperty("maintenance")
+    private boolean maintenance;
+
+    @JsonProperty("severity")
+    @JsonSerialize(using = Severity.Serializer.class)
+    private Severity severity;
+
+    @JsonProperty("description")
+    private String description;
+
+    @JsonProperty("metric_name")
+    private String metricName;
+
+    @JsonProperty("message_key")
+    private String key;
+
+    @JsonProperty("resource")
+    private String resource;
+
+    @JsonProperty("node")
+    private String node;
+
+    @JsonProperty("asset")
+    private String asset;
+
+    @JsonProperty("alert_tags")
+    private String alertTags;
 
     @JsonProperty("status")
     @JsonSerialize(using = Status.Serializer.class)
     private Status status;
 
-    @JsonProperty("description")
-    private String description;
-
-    @JsonProperty("asset")
-    private String asset;
-
-    @JsonProperty("message_key")
-    private String key;
-
-
-    public Status getStatus() {
-        return status;
+    public String getSource() {
+        return source;
     }
 
-    public void setStatus(Status status) {
-        this.status = status;
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public boolean isMaintenance() {
+        return maintenance;
+    }
+
+    public void setMaintenance(boolean maintenance) {
+        this.maintenance = maintenance;
+    }
+
+    public Severity getSeverity() {
+        return severity;
+    }
+
+    public void setSeverity(Severity severity) {
+        this.severity = severity;
     }
 
     public String getDescription() {
@@ -50,12 +93,36 @@ public class Alert {
         this.description = description;
     }
 
+    public String getMetricName() {
+        return metricName;
+    }
+
+    public void setMetricName(String metricName) {
+        this.metricName = metricName;
+    }
+
     public String getKey() {
         return key;
     }
 
     public void setKey(String key) {
         this.key = key;
+    }
+
+    public String getNode() {
+        return node;
+    }
+
+    public String getResource() {
+        return resource;
+    }
+
+    public void setResource(String resource) {
+        this.resource = resource;
+    }
+
+    public void setNode(String node) {
+        this.node = node;
     }
 
     public String getAsset() {
@@ -66,15 +133,29 @@ public class Alert {
         this.asset = asset;
     }
 
+    public String getAlertTags() {
+        return alertTags;
+    }
+
+    public void setAlertTags(String alertTags) {
+        this.alertTags = alertTags;
+    }
+
+    public Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(Status status) {
+        this.status = status;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Alert alert = (Alert) o;
         return Objects.equals(status, alert.status) &&
-                Objects.equals(key, alert.key) &&
-                Objects.equals(asset, alert.asset) &&
-                Objects.equals(description, alert.description)
+                Objects.equals(key, alert.key);
     }
 
     @Override
@@ -85,17 +166,62 @@ public class Alert {
     @Override
     public String toString() {
         return "Alert{" +
-                "status='" + status + '\'' +
-                ", asset='" + asset + '\'' +
+                "source='" + source + '\'' +
+                ", type='" + type + '\'' +
+                ", severity='" + severity + '\'' +
                 ", description='" + description + '\'' +
-                ", key=" + key +
+                ", metricName='" + metricName + '\'' +
+                ", key='" + key + '\'' +
+                ", node='" + node + '\'' +
+                ", asset='" + asset + '\'' +
+                ", alertTags='" + alertTags + '\'' +
+                ", status=" + status +
                 '}';
     }
 
+    public enum Severity {
+        NORMAL("0"),
+        WARNING("1"),
+        MINOR("2"),
+        MAJOR("3"),
+        CRITICAL("4");
+
+        private final String text;
+
+        Severity(String text) {
+            this.text = text;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        public static class Serializer extends StdSerializer<Severity> {
+            protected Serializer() {
+                super(Severity.class);
+            }
+
+            @Override
+            public void serialize(Severity severity, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
+                jsonGenerator.writeString(severity.getText());
+            }
+        }
+
+    }
 
     public enum Status {
-        UP,
-        DOWN;
+        UP("0"),
+        DOWN("1");
+
+        private final String text;
+
+        Status(String text) {
+            this.text = text;
+        }
+
+        public String getText() {
+            return text;
+        }
 
         public static class Serializer extends StdSerializer<Status> {
             protected Serializer() {
@@ -104,25 +230,9 @@ public class Alert {
 
             @Override
             public void serialize(Status status, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
-                switch (status) {
-                case UP:
-                    jsonGenerator.writeString("1");
-                    break;
-                case DOWN:
-                    jsonGenerator.writeString("0");
-                    break;
+                    jsonGenerator.writeString(status.getText());
             }
         }
     }
 
-    public static class InstantSerializer extends StdSerializer<Instant> {
-        protected InstantSerializer() {
-            super(Instant.class);
-        }
-
-        @Override
-        public void serialize(Instant instant, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
-            jsonGenerator.writeNumber(instant.getEpochSecond());
-        }
-    }
 }
