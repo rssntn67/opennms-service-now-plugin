@@ -22,12 +22,12 @@ import java.util.Objects;
 public class AlarmForwarder implements AlarmLifecycleListener {
     private static final Logger LOG = LoggerFactory.getLogger(AlarmForwarder.class);
 
-    private static final String ALARM_UEI_NODE_DOWN = "uei.opennms.org/nodes/nodeDown";
-    private static final String ALARM_UEI_INTERFACE_DOWN = "uei.opennms.org/nodes/interfaceDown";
-    private static final String ALARM_UEI_SERVICE_DOWN = "uei.opennms.org/nodes/nodeLostService";
-    private static final String UEI_PREFIX = "uei.opennms.org/opennms-service-nowPlugin";
-    private static final String SEND_EVENT_FAILED_UEI = UEI_PREFIX + "/sendEventFailed";
-    private static final String SEND_EVENT_SUCCESSFUL_UEI = UEI_PREFIX + "/sendEventSuccessful";
+    public static final String ALARM_UEI_NODE_DOWN = "uei.opennms.org/nodes/nodeDown";
+    public static final String ALARM_UEI_INTERFACE_DOWN = "uei.opennms.org/nodes/interfaceDown";
+    public static final String ALARM_UEI_SERVICE_DOWN = "uei.opennms.org/nodes/nodeLostService";
+    public static final String UEI_PREFIX = "uei.opennms.org/opennms-service-nowPlugin";
+    public static final String SEND_EVENT_FAILED_UEI = UEI_PREFIX + "/sendEventFailed";
+    public static final String SEND_EVENT_SUCCESSFUL_UEI = UEI_PREFIX + "/sendEventSuccessful";
 
     private final MetricRegistry metrics = new MetricRegistry();
     private final Meter eventsForwarded = metrics.meter("eventsForwarded");

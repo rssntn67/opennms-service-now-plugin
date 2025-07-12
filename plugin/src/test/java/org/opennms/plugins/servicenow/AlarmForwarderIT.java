@@ -40,26 +40,21 @@ public class AlarmForwarderIT {
         EventForwarder eventForwarder = mock(EventForwarder.class);
         ConnectionManager connectionManager = mock(ConnectionManager.class);
         ApiClientProvider apiClientProvider = mock(ApiClientProvider.class);
-        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager,apiClientProvider, eventForwarder, "Minnovo");
+        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager,apiClientProvider, eventForwarder, "CategoryA");
 
         // Stub the endpoint
-        stubFor(post((urlEqualTo("/data/v2/alerts")))
+        stubFor(post((urlEqualTo("/crea_aggiorna_allarmi")))
                 .willReturn(aResponse()
                         .withStatus(200)));
 
         // Handle some alarm
-        Alarm alarm = ImmutableAlarm.newBuilder()
-                .setId(1)
-                .setReductionKey("hey:oh")
-                .setSeverity(Severity.CRITICAL)
-                .build();
-        alarmForwarder.handleNewOrUpdatedAlarm(alarm);
+        alarmForwarder.handleNewOrUpdatedAlarm(AlarmForwarderTest.getAlarm());
 
         // Verify that the call was made
         await().atMost(15, TimeUnit.SECONDS)
                 .catchUncaughtExceptions()
                 .until(() -> {
-                    verify(1, postRequestedFor(urlPathEqualTo("/data/v2/alerts")));
+                    verify(1, postRequestedFor(urlPathEqualTo("/crea_aggiorna_allarmi")));
                     return true;
                 });
     }
