@@ -5,6 +5,12 @@
                 http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.1.0
                 http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd">
 
+    <!-- Configuration stored in $OPENNMS_HOME/etc/org.opennms.plugins.servicenow.cfg file -->
+    <cm:property-placeholder id="opennms-service-nowPluginProperties" persistent-id="org.opennms.plugins.servicenow" update-strategy="reload">
+        <cm:default-properties>
+            <cm:property name="filter" value="Minnovo" />
+        </cm:default-properties>
+    </cm:property-placeholder>
     <!-- Pull in service implementations from the OSGi registry -->
     <reference id="alarmDao" interface="org.opennms.integration.api.v1.dao.AlarmDao" availability="optional"/>
     <reference id="edgeDao" interface="org.opennms.integration.api.v1.dao.EdgeDao" availability="optional"/>
@@ -34,6 +40,7 @@
         <argument ref="connectionManager"/>
         <argument ref="apiClientProvider"/>
         <argument ref="eventForwarder"/>
+        <argument value="${filter}"/>
     </bean>
     <!-- Expose the forwarder as a AlarmLifecycleListener so we get callbacks -->
     <service interface="org.opennms.integration.api.v1.alarms.AlarmLifecycleListener" ref="alarmForwarder"/>

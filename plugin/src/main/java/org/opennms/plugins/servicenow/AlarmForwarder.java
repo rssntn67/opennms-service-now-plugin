@@ -36,11 +36,13 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     private final ConnectionManager connectionManager;
     private final ApiClientProvider apiClientProvider;
     private final EventForwarder eventForwarder;
+    private final String filter;
 
-    public AlarmForwarder(ConnectionManager connectionManager, ApiClientProvider apiClientProvider, EventForwarder eventForwarder) {
+    public AlarmForwarder(ConnectionManager connectionManager, ApiClientProvider apiClientProvider, EventForwarder eventForwarder, String filter) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
         this.eventForwarder = Objects.requireNonNull(eventForwarder);
+        this.filter = Objects.requireNonNull(filter);
     }
 
     @Override
@@ -56,6 +58,9 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             !(alarm.getReductionKey().startsWith(ALARM_UEI_SERVICE_DOWN) && alarm.getReductionKey().endsWith("ICMP"))
             )
         {
+            return;
+        }
+        if (!alarm.getNode().getCategories().contains(filter)) {
             return;
         }
 
