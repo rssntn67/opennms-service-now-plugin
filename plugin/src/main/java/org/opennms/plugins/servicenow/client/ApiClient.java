@@ -1,33 +1,30 @@
 package org.opennms.plugins.servicenow.client;
 
-import java.io.IOException;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-
-import okhttp3.Authenticator;
-import okhttp3.Credentials;
-import okhttp3.FormBody;
-import okhttp3.Route;
-import org.opennms.plugins.servicenow.model.Alert;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import okhttp3.Call;
 import okhttp3.Callback;
+import okhttp3.Credentials;
+import okhttp3.FormBody;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
+import org.jetbrains.annotations.NotNull;
+import org.opennms.plugins.servicenow.model.Alert;
+import org.opennms.plugins.servicenow.model.TokenResponse;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import java.io.IOException;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 
 public class ApiClient {
 
@@ -38,7 +35,7 @@ public class ApiClient {
     private final ObjectMapper mapper = new ObjectMapper();
     private final ApiClientCredentials apiClientCredentials;
     private final static String alertEndPoint = "crea_aggiorna_allarmi";
-    private String accessToken;
+    private TokenResponse tokenResponse;
 
     private static final TrustManager[] trustAllCerts = new TrustManager[] {
             new X509TrustManager() {
@@ -98,7 +95,8 @@ public class ApiClient {
         Request request = new Request.Builder()
                 .url(TOKEN_URL)
                 .post(formBody)
-                .header("Authorization", "Bearer " + accessToken)                .build();
+                .header("Authorization", credential)
+                .build();
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 throw new IOException("Unexpected code " + response);
@@ -111,7 +109,7 @@ public class ApiClient {
             // This is a simplified extraction
             String accessToken = responseBody.split("\"access_token\":\"")[1].split("\"")[0];
             System.out.println("Access Token: " + accessToken);
-            this.accessToken=accessToken;
+            this.tokenResponse=mapper.readValue(response.body().string(), TokenResponse.class);
         }
     }
     public CompletableFuture<Void> sendAlert(Alert alert) {
@@ -122,13 +120,13 @@ public class ApiClient {
     private CompletableFuture<Void> doPost(Object requestBodyPayload) {
         RequestBody body;
         try {
-            body = RequestBody.create(JSON, mapper.writeValueAsString(requestBodyPayload));
+            body = RequestBody.create(mapper.writeValueAsString(requestBodyPayload),JSON);
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
         Request request = new Request.Builder()
                 .url(apiClientCredentials.url+"/"+ ApiClient.alertEndPoint)
-                .header("Authorization", "Bearer " + accessToken)
+                .header("Authorization", "Bearer " + tokenResponse.getAccessToken())
                 .post(body)
                 .build();
 
@@ -137,13 +135,13 @@ public class ApiClient {
         client.newCall(request)
                 .enqueue(new Callback() {
                     @Override
-                    public void onFailure(Call call, IOException e) {
+                    public void onFailure(@NotNull Call call, @NotNull IOException e) {
                         future.completeExceptionally(e);
                     }
 
                     @Override
-                    public void onResponse(Call call, Response response) {
-                        try {
+                    public void onResponse(@NotNull Call call, @NotNull Response response) {
+                        try (response) {
                             if (!response.isSuccessful()) {
                                 String bodyPayload = "(empty)";
                                 ResponseBody body = response.body();
@@ -161,8 +159,6 @@ public class ApiClient {
                             } else {
                                 future.complete(null);
                             }
-                        } finally {
-                            response.close();
                         }
                     }
                 });
