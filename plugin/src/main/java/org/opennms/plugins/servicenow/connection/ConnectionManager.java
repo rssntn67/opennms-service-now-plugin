@@ -6,8 +6,6 @@ import org.opennms.integration.api.v1.scv.Credentials;
 import org.opennms.integration.api.v1.scv.SecureCredentialsVault;
 import org.opennms.integration.api.v1.scv.immutables.ImmutableCredentials;
 import org.opennms.plugins.servicenow.client.ApiClientCredentials;
-import org.opennms.shaded.com.google.common.base.MoreObjects;
-import org.opennms.shaded.com.google.common.base.Strings;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -82,21 +80,25 @@ public class ConnectionManager {
         return true;
     }
 
+    private static boolean isNullOrEmpty(String check) {
+        return check == null || check.isEmpty();
+
+    }
+
     private static ApiClientCredentials fromStore(final Credentials credentials) {
 
-
-        if (Strings.isNullOrEmpty(credentials.getPassword())) {
+        if (isNullOrEmpty(credentials.getPassword())) {
             throw new IllegalStateException("API password is missing");
         }
-        if (Strings.isNullOrEmpty(credentials.getUsername())) {
+        if (isNullOrEmpty(credentials.getUsername())) {
             throw new IllegalStateException("API username is missing");
         }
 
-        if (Strings.isNullOrEmpty(credentials.getAttribute(URL_KEY))) {
+        if (isNullOrEmpty(credentials.getAttribute(URL_KEY))) {
             throw new IllegalStateException("URL is missing");
         }
 
-        if (Strings.isNullOrEmpty(credentials.getAttribute(IGNORE_SSL_CERTIFICATE_VALIDATION_KEY))) {
+        if (isNullOrEmpty(credentials.getAttribute(IGNORE_SSL_CERTIFICATE_VALIDATION_KEY))) {
             throw new IllegalStateException("Ignore  SSL CERTIFICATION Validation is missing");
         }
 
@@ -188,13 +190,9 @@ public class ConnectionManager {
 
         @Override
         public String toString() {
-            return MoreObjects.toStringHelper(this)
-                              .add("alias", ConnectionManager.alias)
-                              .add(URL_KEY, this.credentials.url)
-                              .add("username", this.credentials.username)
-                              .add("password", "******")
-                              .add(IGNORE_SSL_CERTIFICATE_VALIDATION_KEY, this.credentials.ignoreSslCertificateValidation)
-                    .toString();
+            return "ConnectionImpl{" +
+                    "credentials=" + credentials +
+                    '}';
         }
     }
 
