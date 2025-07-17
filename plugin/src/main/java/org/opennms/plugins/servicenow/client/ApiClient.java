@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.Call;
 import okhttp3.Callback;
-import okhttp3.Credentials;
 import okhttp3.FormBody;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -15,6 +14,8 @@ import okhttp3.ResponseBody;
 import org.jetbrains.annotations.NotNull;
 import org.opennms.plugins.servicenow.model.Alert;
 import org.opennms.plugins.servicenow.model.TokenResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
@@ -28,13 +29,14 @@ import java.util.concurrent.CompletableFuture;
 
 public class ApiClient {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ApiClient.class);
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
-    private static final String TOKEN_URL = "https://example.com/oauth2/token";
+    private static final String TOKEN_END_POINT = "token";
+    private static final String ALERT_END_POINT = "minnovo/a2a/servicenow/1.0/crea_aggiorna_allarmi";
     private final OkHttpClient client;
     private final ObjectMapper mapper = new ObjectMapper();
     private final ApiClientCredentials apiClientCredentials;
-    private final static String alertEndPoint = "crea_aggiorna_allarmi";
     private TokenResponse tokenResponse;
 
     private static final TrustManager[] trustAllCerts = new TrustManager[] {
@@ -100,29 +102,25 @@ public class ApiClient {
     public void getAccessToken() throws IOException {
         FormBody formBody = new FormBody.Builder()
                 .add("grant_type", "client_credentials")
-                .add("scope", "SCOPE")
+                .add("client_id", apiClientCredentials.username)
+                .add("client_secret", apiClientCredentials.password)
                 .build();
-        String credential = Credentials.basic(apiClientCredentials.username, apiClientCredentials.password);
         Request request = new Request.Builder()
-                .url(TOKEN_URL)
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .url(apiClientCredentials.url+"/"+ ApiClient.TOKEN_END_POINT)
                 .post(formBody)
-                .header("Authorization", credential)
                 .build();
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 throw new IOException("Unexpected code " + response);
             }
-
             // Parse the response to get the access token
             assert response.body() != null;
-            String responseBody = response.body().string();
-            // In a real application, you'd use a JSON parser
-            // This is a simplified extraction
-            String accessToken = responseBody.split("\"access_token\":\"")[1].split("\"")[0];
-            System.out.println("Access Token: " + accessToken);
             this.tokenResponse=mapper.readValue(response.body().string(), TokenResponse.class);
+            LOG.info("Access Token: {}", tokenResponse.getAccessToken());
         }
     }
+
     public CompletableFuture<Void> sendAlert(Alert alert) {
         return doPost(alert);
     }
@@ -136,7 +134,7 @@ public class ApiClient {
             throw new RuntimeException(e);
         }
         Request request = new Request.Builder()
-                .url(apiClientCredentials.url+"/"+ ApiClient.alertEndPoint)
+                .url(apiClientCredentials.url+"/"+ ApiClient.ALERT_END_POINT)
                 .header("Authorization", "Bearer " + tokenResponse.getAccessToken())
                 .post(body)
                 .build();
@@ -174,6 +172,10 @@ public class ApiClient {
                     }
                 });
         return future;
+    }
+
+    public String getToken() {
+        return tokenResponse.getAccessToken();
     }
 
 }
