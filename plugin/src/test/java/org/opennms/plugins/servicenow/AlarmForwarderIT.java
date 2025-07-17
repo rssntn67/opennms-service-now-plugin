@@ -8,7 +8,6 @@ import org.opennms.plugins.servicenow.client.ApiClientProvider;
 import org.opennms.plugins.servicenow.client.ApiClientProviderImpl;
 import org.opennms.plugins.servicenow.connection.Connection;
 import org.opennms.plugins.servicenow.connection.ConnectionManager;
-import org.opennms.plugins.servicenow.model.TokenResponse;
 
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -35,9 +34,6 @@ public class AlarmForwarderIT {
         EventForwarder eventForwarder = mock(EventForwarder.class);
         ConnectionManager connectionManager = mock(ConnectionManager.class);
         ApiClientProvider apiClientProvider = new ApiClientProviderImpl();
-        TokenResponse tokenResponse = new TokenResponse();
-        tokenResponse.setAccessToken("accessToken");
-        apiClientProvider.setToken(tokenResponse);
         AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager,apiClientProvider, eventForwarder, "CategoryA");
 
         when(connectionManager.getConnection()).thenReturn(Optional.of(new ConnectionTest()));

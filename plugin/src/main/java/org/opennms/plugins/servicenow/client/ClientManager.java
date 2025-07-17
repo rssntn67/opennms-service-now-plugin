@@ -19,15 +19,14 @@ public class ClientManager {
     }
 
     public Optional<ConnectionValidationError> validate(Connection connection) {
+        LOG.warn("validate: {}", connection);
         try {
-            clientProvider.client(asApiClientCredentials(connection));
-            boolean validated = clientProvider.validate();
-            LOG.info("validate: {}", validated);
-            if (validated) {
-                return Optional.empty();
-            }
+            ApiClientCredentials credentials = asApiClientCredentials(connection);
+            LOG.warn("validate: {}", credentials);
+            clientProvider.client(credentials);
+            return Optional.empty();
         } catch (ApiException e) {
-            LOG.error("validate: {} failed", connection);
+            LOG.error("validate: {} failed", connection, e);
         }
         return Optional.of(new ConnectionValidationError("Connection could not be validated"));
     }

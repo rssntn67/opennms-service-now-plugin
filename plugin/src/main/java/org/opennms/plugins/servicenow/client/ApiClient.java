@@ -77,7 +77,7 @@ public class ApiClient {
         return builder.build();
     }
 
-    public ApiClient(ApiClientCredentials apiClientCredentials) {
+    public ApiClient(ApiClientCredentials apiClientCredentials) throws ApiException {
         this.apiClientCredentials = Objects.requireNonNull(apiClientCredentials);
         OkHttpClient okHttpclient = new OkHttpClient();
 
@@ -85,21 +85,10 @@ public class ApiClient {
             okHttpclient = trustAllSslClient(okHttpclient);
         }
         this.client = okHttpclient;
-
+        getAccessToken();
     }
 
-    public ApiClient(ApiClientCredentials apiClientCredentials, TokenResponse tokenResponse) {
-        this.apiClientCredentials = Objects.requireNonNull(apiClientCredentials);
-        OkHttpClient okHttpclient = new OkHttpClient();
-
-        if (apiClientCredentials.ignoreSslCertificateValidation) {
-            okHttpclient = trustAllSslClient(okHttpclient);
-        }
-        this.client = okHttpclient;
-        this.tokenResponse = tokenResponse;
-    }
-
-    public void getAccessToken() throws IOException {
+    public void getAccessToken() throws ApiException {
         FormBody formBody = new FormBody.Builder()
                 .add("grant_type", "client_credentials")
                 .add("client_id", apiClientCredentials.username)
@@ -112,12 +101,19 @@ public class ApiClient {
                 .build();
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
-                throw new IOException("Unexpected code " + response);
+                if (response.body() != null) {
+                    LOG.warn("getAccessToken: code: {}, response: {}", response.code(), response.body().string());
+                    throw new ApiException("Unexpected code: ", new RuntimeException(), response.code(), response.body().toString());
+                }
+                LOG.warn("getAccessToken: code {} response: null", response.code());
+                throw new ApiException("Unexpected code: ", new RuntimeException(), response.code(), "");
             }
             // Parse the response to get the access token
             assert response.body() != null;
             this.tokenResponse=mapper.readValue(response.body().string(), TokenResponse.class);
             LOG.info("Access Token: {}", tokenResponse.getAccessToken());
+        } catch (IOException e) {
+            throw new ApiException("Got IOException",e);
         }
     }
 
