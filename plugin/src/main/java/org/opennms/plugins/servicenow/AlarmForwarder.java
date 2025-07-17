@@ -74,33 +74,37 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
         Alert alert = toAlert(alarm);
         // Forward the alarm
-        apiClient.sendAlert(alert).whenComplete((v,ex) -> {
-            if (ex != null) {
-                eventsForwarded.mark();
-                eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                        .setUei(SEND_EVENT_FAILED_UEI)
-                        .addParameter(ImmutableEventParameter.newBuilder()
-                                .setName("reductionKey")
-                                .setValue(alarm.getReductionKey())
-                                .build())
-                        .addParameter(ImmutableEventParameter.newBuilder()
-                                .setName("message")
-                                .setValue(ex.getMessage())
-                                .build())
-                        .build());
-                LOG.warn("Sending event for alarm with reduction-key: {} failed.", alarm.getReductionKey(), ex);
-            } else {
-                eventsFailed.mark();
-                eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                        .setUei(SEND_EVENT_SUCCESSFUL_UEI)
-                        .addParameter(ImmutableEventParameter.newBuilder()
-                                .setName("reductionKey")
-                                .setValue(alarm.getReductionKey())
-                                .build())
-                        .build());
-                LOG.info("Event sent successfully for alarm with reduction-key: {}", alarm.getReductionKey());
-            }
-        });
+        try {
+            apiClient.sendAlert(alert).whenComplete((v,ex) -> {
+                if (ex != null) {
+                    eventsForwarded.mark();
+                    eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                            .setUei(SEND_EVENT_FAILED_UEI)
+                            .addParameter(ImmutableEventParameter.newBuilder()
+                                    .setName("reductionKey")
+                                    .setValue(alarm.getReductionKey())
+                                    .build())
+                            .addParameter(ImmutableEventParameter.newBuilder()
+                                    .setName("message")
+                                    .setValue(ex.getMessage())
+                                    .build())
+                            .build());
+                    LOG.warn("Sending event for alarm with reduction-key: {} failed.", alarm.getReductionKey(), ex);
+                } else {
+                    eventsFailed.mark();
+                    eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                            .setUei(SEND_EVENT_SUCCESSFUL_UEI)
+                            .addParameter(ImmutableEventParameter.newBuilder()
+                                    .setName("reductionKey")
+                                    .setValue(alarm.getReductionKey())
+                                    .build())
+                            .build());
+                    LOG.info("Event sent successfully for alarm with reduction-key: {}", alarm.getReductionKey());
+                }
+            });
+        } catch (ApiException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

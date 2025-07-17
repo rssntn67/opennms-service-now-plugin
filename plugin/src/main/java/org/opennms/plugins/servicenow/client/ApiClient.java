@@ -38,6 +38,7 @@ public class ApiClient {
     private final ObjectMapper mapper = new ObjectMapper();
     private final ApiClientCredentials apiClientCredentials;
     private TokenResponse tokenResponse;
+    private long expiresAt;
 
     private static final TrustManager[] trustAllCerts = new TrustManager[] {
             new X509TrustManager() {
@@ -88,7 +89,39 @@ public class ApiClient {
         getAccessToken();
     }
 
-    public void getAccessToken() throws ApiException {
+    private void refreshToken() throws ApiException {
+        FormBody formBody = new FormBody.Builder()
+                .add("grant_type", "refresh_token")
+                .add("refresh_token", tokenResponse.getRefreshToken())
+                .add("client_id", apiClientCredentials.username)
+                .add("client_secret", apiClientCredentials.password)
+                .build();
+        Request request = new Request.Builder()
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .url(apiClientCredentials.url+"/"+ ApiClient.TOKEN_END_POINT)
+                .post(formBody)
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                if (response.body() != null) {
+                    LOG.warn("refreshToken: code: {}, response: {}", response.code(), response.body().string());
+                    throw new ApiException("Unexpected code: ", new RuntimeException(), response.code(), response.body().toString());
+                }
+                LOG.warn("refreshToken: code {} response: null", response.code());
+                throw new ApiException("Unexpected code: ", new RuntimeException(), response.code(), "");
+            }
+            // Parse the response to get the access token
+            assert response.body() != null;
+            this.tokenResponse=mapper.readValue(response.body().string(), TokenResponse.class);
+            this.expiresAt = System.currentTimeMillis() + (this.tokenResponse.getExpires_in() * 1000L);
+            LOG.info("refreshToken: Access Token: {}", tokenResponse.getAccessToken());
+        } catch (IOException e) {
+            throw new ApiException("Got IOException",e);
+        }
+    }
+
+
+    private void getAccessToken() throws ApiException {
         FormBody formBody = new FormBody.Builder()
                 .add("grant_type", "client_credentials")
                 .add("client_id", apiClientCredentials.username)
@@ -111,18 +144,28 @@ public class ApiClient {
             // Parse the response to get the access token
             assert response.body() != null;
             this.tokenResponse=mapper.readValue(response.body().string(), TokenResponse.class);
-            LOG.info("Access Token: {}", tokenResponse.getAccessToken());
+            this.expiresAt = System.currentTimeMillis() + (this.tokenResponse.getExpires_in() * 1000L);
+            LOG.info("getAccessToken: Access Token: {}", tokenResponse.getAccessToken());
         } catch (IOException e) {
             throw new ApiException("Got IOException",e);
         }
     }
 
-    public CompletableFuture<Void> sendAlert(Alert alert) {
+    public CompletableFuture<Void> sendAlert(Alert alert) throws ApiException {
         return doPost(alert);
     }
 
+    public void check() throws ApiException {
+        long now = System.currentTimeMillis();
+        if (now < expiresAt && now >= expiresAt - 5000) { // 5 second buffer
+            refreshToken();
+        } else if ( System.currentTimeMillis() >= expiresAt) {
+            getAccessToken();
+        }
+    }
 
-    private CompletableFuture<Void> doPost(Object requestBodyPayload) {
+    private CompletableFuture<Void> doPost(Object requestBodyPayload) throws ApiException {
+        check();
         RequestBody body;
         try {
             body = RequestBody.create(mapper.writeValueAsString(requestBodyPayload),JSON);
@@ -134,6 +177,7 @@ public class ApiClient {
                 .header("Authorization", "Bearer " + tokenResponse.getAccessToken())
                 .post(body)
                 .build();
+
 
         CompletableFuture<Void> future = new CompletableFuture<>();
 
@@ -170,8 +214,8 @@ public class ApiClient {
         return future;
     }
 
-    public String getToken() {
-        return tokenResponse.getAccessToken();
+    public TokenResponse getToken() {
+        return tokenResponse;
     }
 
 }

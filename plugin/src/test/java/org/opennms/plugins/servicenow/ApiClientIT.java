@@ -39,7 +39,7 @@ public class ApiClientIT {
         System.out.println("sending:" + up);
         client.sendAlert(up);
 
-        client.getAccessToken();
+        client.check();
         System.out.println("Bearer: " + client.getToken());
 
     }
