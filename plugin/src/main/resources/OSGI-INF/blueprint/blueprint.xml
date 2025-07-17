@@ -25,7 +25,7 @@
         <argument ref="apiClientProvider"/>
     </bean>
 
-    <bean id="connectionManager" class="org.opennms.plugins.servicenow.connections.ConnectionManager">
+    <bean id="connectionManager" class="org.opennms.plugins.servicenow.connection.ConnectionManager">
         <argument>
             <reference interface="org.opennms.integration.api.v1.runtime.RuntimeInfo" availability="optional"/>
         </argument>
@@ -33,7 +33,7 @@
             <reference interface="org.opennms.integration.api.v1.scv.SecureCredentialsVault" availability="optional"/>
         </argument>
     </bean>
-    <service ref="connectionManager" interface="org.opennms.plugins.servicenow.connections.ConnectionManager"/>
+    <service ref="connectionManager" interface="org.opennms.plugins.servicenow.connection.ConnectionManager"/>
 
     <!-- Build our forwarder bean -->
     <bean id="alarmForwarder" class="org.opennms.plugins.servicenow.AlarmForwarder">
