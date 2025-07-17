@@ -15,24 +15,31 @@ import java.util.Optional;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.opennms.plugins.servicenow.ApiClientIT.PASSWORD;
+import static org.opennms.plugins.servicenow.ApiClientIT.URL;
+import static org.opennms.plugins.servicenow.ApiClientIT.USERNAME;
 
 public class ClientManagerIT {
 
     @Test
-    public void canUseConnection() throws ApiException {
-        // Wire it up
+    public void canPassFromConnectionToCredentials() {
         ApiClientCredentials credentialsA = ClientManager.asApiClientCredentials(new ConnectionTest());
         ApiClientCredentials credentialsB = ApiClientIT.getCredentials();
         assertThat(credentialsA, equalTo(credentialsB));
+    }
+
+    @Test
+    public void canUseConnection() throws ApiException {
+        // Wire it up
         ApiClientProvider apiClientProvider = new ApiClientProviderImpl();
         ClientManager clientManager = new ClientManager(apiClientProvider);
         Optional<ConnectionValidationError> validated = clientManager.validate((new ConnectionTest()));
         assertThat(validated.isEmpty(), is(true));
-        ApiClient client = apiClientProvider.client(credentialsA);
+        ApiClient client = apiClientProvider.client(ApiClientIT.getCredentials());
         System.out.println(client.getToken());
     }
 
-    private static class ConnectionTest implements Connection {
+    public static class ConnectionTest implements Connection {
 
         @Override
         public boolean isIgnoreSslCertificateValidation() {
@@ -46,7 +53,7 @@ public class ClientManagerIT {
 
         @Override
         public String getUrl() {
-            return "https://api.example.it";
+            return URL;
         }
 
         @Override
@@ -56,7 +63,7 @@ public class ClientManagerIT {
 
         @Override
         public String getUsername() {
-            return "user";
+            return USERNAME;
         }
 
         @Override
@@ -66,7 +73,7 @@ public class ClientManagerIT {
 
         @Override
         public String getPassword() {
-            return "pass";
+            return PASSWORD;
         }
 
         @Override
@@ -84,4 +91,6 @@ public class ClientManagerIT {
 
         }
     }
+
+
 }

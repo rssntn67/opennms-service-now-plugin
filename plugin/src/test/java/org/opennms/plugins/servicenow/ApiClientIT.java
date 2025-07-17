@@ -4,16 +4,21 @@ import org.junit.Test;
 import org.opennms.plugins.servicenow.client.ApiClient;
 import org.opennms.plugins.servicenow.client.ApiClientCredentials;
 import org.opennms.plugins.servicenow.client.ApiException;
+import org.opennms.plugins.servicenow.connection.Connection;
 import org.opennms.plugins.servicenow.model.Alert;
 
 public class ApiClientIT {
 
+    public static final String URL = "https://api.example.it";
+    public static final String USERNAME = "user";
+    public static final String PASSWORD = "pass";
+
     public static ApiClientCredentials getCredentials() {
         return ApiClientCredentials.builder()
-                .withUrl("https://api.example.it")
+                .withUrl(URL)
                 .withIgnoreSslCertificateValidation(false)
-                .withUsername("user")
-                .withPassword("pass")
+                .withUsername(USERNAME)
+                .withPassword(PASSWORD)
                 .build();
     }
 
