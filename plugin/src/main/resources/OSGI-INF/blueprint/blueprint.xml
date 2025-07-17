@@ -24,6 +24,7 @@
     <bean id="clientManager" class="org.opennms.plugins.servicenow.client.ClientManager">
         <argument ref="apiClientProvider"/>
     </bean>
+    <service ref="clientManager" interface="org.opennms.plugins.servicenow.client.ClientManager"/>
 
     <bean id="connectionManager" class="org.opennms.plugins.servicenow.connection.ConnectionManager">
         <argument>
