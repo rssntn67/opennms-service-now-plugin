@@ -151,20 +151,28 @@ public class ApiClient {
         }
     }
 
-    public CompletableFuture<Void> sendAlert(Alert alert) throws ApiException {
+    public CompletableFuture<Void> sendAlert(Alert alert) {
         return doPost(alert);
     }
 
-    public void check() throws ApiException {
+    public void check() {
         long now = System.currentTimeMillis();
         if (now < expiresAt && now >= expiresAt - 5000) { // 5 second buffer
-            refreshToken();
+            try {
+                refreshToken();
+            } catch (ApiException e) {
+                LOG.error("check: refresh: code: {}, message: {}", e.getCode(), e.getResponseBody(),e);
+            }
         } else if ( System.currentTimeMillis() >= expiresAt) {
-            getAccessToken();
+            try {
+                getAccessToken();
+            } catch (ApiException e) {
+                LOG.error("check: access: code: {}, message: {}", e.getCode(), e.getResponseBody(),e);
+            }
         }
     }
 
-    private CompletableFuture<Void> doPost(Object requestBodyPayload) throws ApiException {
+    private CompletableFuture<Void> doPost(Object requestBodyPayload) {
         check();
         RequestBody body;
         try {

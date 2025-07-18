@@ -74,7 +74,6 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
         Alert alert = toAlert(alarm);
         // Forward the alarm
-        try {
             apiClient.sendAlert(alert).whenComplete((v,ex) -> {
                 if (ex != null) {
                     eventsForwarded.mark();
@@ -102,9 +101,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
                     LOG.info("Event sent successfully for alarm with reduction-key: {}", alarm.getReductionKey());
                 }
             });
-        } catch (ApiException e) {
-            throw new RuntimeException(e);
-        }
+
     }
 
     @Override
