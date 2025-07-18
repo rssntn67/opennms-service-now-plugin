@@ -25,7 +25,7 @@ public class ApiClientIT {
     @Test
     public void getAccessTokenAndSendTestAlarm() throws InterruptedException, ApiException {
         ApiClient client = new ApiClient(getCredentials());
-        System.out.println("Bearer: " + client.getToken());
+        System.out.println("AccessToken: " + client.getToken());
 
         Alert down = getTestAlert(Alert.Severity.MAJOR, Alert.Status.DOWN);
         System.out.println("sending:" + down);
@@ -40,7 +40,7 @@ public class ApiClientIT {
         client.sendAlert(up);
 
         client.check();
-        System.out.println("Bearer: " + client.getToken());
+        System.out.println("AccessToken: " + client.getToken());
 
     }
 
