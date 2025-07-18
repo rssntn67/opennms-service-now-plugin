@@ -1,5 +1,8 @@
 package org.opennms.plugins.servicenow;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -8,6 +11,7 @@ import org.opennms.plugins.servicenow.client.ApiClientProvider;
 import org.opennms.plugins.servicenow.client.ApiClientProviderImpl;
 import org.opennms.plugins.servicenow.connection.Connection;
 import org.opennms.plugins.servicenow.connection.ConnectionManager;
+import org.opennms.plugins.servicenow.model.TokenResponse;
 
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -22,6 +26,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opennms.plugins.servicenow.client.ApiClient.ALERT_END_POINT;
+import static org.opennms.plugins.servicenow.client.ApiClient.TOKEN_END_POINT;
 
 public class AlarmForwarderIT {
 
@@ -29,7 +35,8 @@ public class AlarmForwarderIT {
     public WireMockRule wireMockRule = new WireMockRule();
 
     @Test
-    public void canForwardAlarm() {
+    public void canForwardAlarm() throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
         // Wire it up
         EventForwarder eventForwarder = mock(EventForwarder.class);
         ConnectionManager connectionManager = mock(ConnectionManager.class);
@@ -38,21 +45,34 @@ public class AlarmForwarderIT {
 
         when(connectionManager.getConnection()).thenReturn(Optional.of(new ConnectionTest()));
 
+        TokenResponse response = new TokenResponse();
+        response.setAccessToken("accessToken");
+        response.setExpires_in(3600);
+        response.setScope("scope");
+        response.setRefreshToken("refreshToken");
+        response.setTokenType("TokenType");
         // Stub the endpoint
-        stubFor(post((urlEqualTo("//crea_aggiorna_allarmi")))
+        stubFor(post((urlEqualTo("//"+TOKEN_END_POINT)))
                 .willReturn(aResponse()
-                        .withStatus(200)));
+                        .withStatus(200)
+                        .withBody((mapper.writeValueAsString(response))))
+        );
 
-        // Handle some alarm
-        alarmForwarder.handleNewOrUpdatedAlarm(AlarmForwarderTest.getAlarm());
+        stubFor(post((urlEqualTo("//"+ALERT_END_POINT)))
+                .willReturn(aResponse()
+                        .withStatus(200))
+);
 
-        // Verify that the call was made
         await().atMost(15, TimeUnit.SECONDS)
                 .catchUncaughtExceptions()
                 .until(() -> {
-                    verify(1, postRequestedFor(urlPathEqualTo("//crea_aggiorna_allarmi")));
+                    verify(1, postRequestedFor(urlPathEqualTo("//"+ALERT_END_POINT)));
                     return true;
                 });
+
+
+        // Handle some alarm
+        alarmForwarder.handleNewOrUpdatedAlarm(AlarmForwarderTest.getAlarm());
     }
 
     private class ConnectionTest implements Connection {

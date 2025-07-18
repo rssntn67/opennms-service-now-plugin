@@ -32,8 +32,8 @@ public class ApiClient {
     private static final Logger LOG = LoggerFactory.getLogger(ApiClient.class);
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
-    private static final String TOKEN_END_POINT = "token";
-    private static final String ALERT_END_POINT = "minnovo/a2a/servicenow/1.0/crea_aggiorna_allarmi";
+    public static final String TOKEN_END_POINT = "token";
+    public static final String ALERT_END_POINT = "minnovo/a2a/servicenow/1.0/crea_aggiorna_allarmi";
     private final OkHttpClient client;
     private final ObjectMapper mapper = new ObjectMapper();
     private final ApiClientCredentials apiClientCredentials;
