@@ -1,7 +1,5 @@
 package org.opennms.plugins.servicenow.shell;
 
-import com.codahale.metrics.ConsoleReporter;
-import com.codahale.metrics.MetricRegistry;
 import org.apache.karaf.shell.api.action.Action;
 import org.apache.karaf.shell.api.action.Command;
 import org.apache.karaf.shell.api.action.lifecycle.Reference;
@@ -14,9 +12,8 @@ import org.opennms.integration.api.v1.model.immutables.ImmutableNodeAssetRecord;
 import org.opennms.plugins.servicenow.AlarmForwarder;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
-@Command(scope = "opennms-service-now", name = "send-alarm", description = "Send Alarm.")
+@Command(scope = "opennms-service-now", name = "send-down-alarm", description = "Send Test Alarm Down.")
 @Service
 public class SendDownAlarmCommand implements Action {
 

@@ -13,7 +13,7 @@ import org.opennms.plugins.servicenow.AlarmForwarder;
 
 import java.util.List;
 
-@Command(scope = "opennms-service-now", name = "send-alarm", description = "Send Alarm.")
+@Command(scope = "opennms-service-now", name = "send-up-alarm", description = "Send Test Alarm Up.")
 @Service
 public class SendUpAlarmCommand implements Action {
 
