@@ -1,0 +1,52 @@
+package org.opennms.plugins.servicenow.shell;
+
+import com.codahale.metrics.ConsoleReporter;
+import com.codahale.metrics.MetricRegistry;
+import org.apache.karaf.shell.api.action.Action;
+import org.apache.karaf.shell.api.action.Command;
+import org.apache.karaf.shell.api.action.lifecycle.Reference;
+import org.apache.karaf.shell.api.action.lifecycle.Service;
+import org.opennms.integration.api.v1.model.Alarm;
+import org.opennms.integration.api.v1.model.Severity;
+import org.opennms.integration.api.v1.model.immutables.ImmutableAlarm;
+import org.opennms.integration.api.v1.model.immutables.ImmutableNode;
+import org.opennms.integration.api.v1.model.immutables.ImmutableNodeAssetRecord;
+import org.opennms.plugins.servicenow.AlarmForwarder;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+@Command(scope = "opennms-service-now", name = "send-alarm", description = "Send Alarm.")
+@Service
+public class SendDownAlarmCommand implements Action {
+
+    @Reference
+    private AlarmForwarder forwarder;
+
+    @Override
+    public Object execute() {
+        forwarder.handleNewOrUpdatedAlarm(getAlarm());
+        return null;
+    }
+
+    public static Alarm getAlarm() {
+        return ImmutableAlarm.newBuilder()
+                .setId(-1000)
+                .setReductionKey(AlarmForwarder.ALARM_UEI_NODE_DOWN+":-1")
+                .setSeverity(Severity.CRITICAL)
+                .setDescription("Description Test Node Down ")
+                .setLogMessage("Node Down Test")
+                .setNode(ImmutableNode.newBuilder()
+                        .setId(-1)
+                        .setLocation("Asia")
+                        .setLabel("Node")
+                        .setCategories(List.of("CategoryA", "CategoryB", "Minnovo"))
+                        .setAssetRecord(ImmutableNodeAssetRecord.newBuilder()
+                                .setDescription("AssetRecordDescription")
+                                .build())
+                        .build()
+                ).build();
+
+    }
+
+}
