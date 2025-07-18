@@ -36,7 +36,12 @@ public class ClientManagerIT {
         Optional<ConnectionValidationError> validated = clientManager.validate((new ConnectionTest()));
         assertThat(validated.isEmpty(), is(true));
         ApiClient client = apiClientProvider.client(ApiClientIT.getCredentials());
-        System.out.println(client.getToken());
+        System.out.println("accessToken: " + client.getToken().getAccessToken());
+        System.out.println("expiresIn: " + client.getToken().getExpires_in());
+        System.out.println("refreshToken: " + client.getToken().getRefreshToken());
+        System.out.println("tokenType: " + client.getToken().getTokenType());
+        System.out.println("scope: " + client.getToken().getScope());
+
     }
 
     public static class ConnectionTest implements Connection {
