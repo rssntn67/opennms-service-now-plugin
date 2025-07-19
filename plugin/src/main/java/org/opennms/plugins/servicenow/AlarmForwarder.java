@@ -79,35 +79,34 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         }
 
         Alert alert = toAlert(alarm);
+        LOG.debug("handleNewOrUpdatedAlarm: converted to {}", alarm );
         // Forward the alarm
-            apiClient.sendAlert(alert).whenComplete((v,ex) -> {
-                if (ex != null) {
-                    eventsForwarded.mark();
-                    eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                            .setUei(SEND_EVENT_FAILED_UEI)
-                            .addParameter(ImmutableEventParameter.newBuilder()
-                                    .setName("reductionKey")
-                                    .setValue(alarm.getReductionKey())
-                                    .build())
-                            .addParameter(ImmutableEventParameter.newBuilder()
-                                    .setName("message")
-                                    .setValue(ex.getMessage())
-                                    .build())
-                            .build());
-                    LOG.warn("handleNewOrUpdatedAlarm: Failed Sending event for alarm with reduction-key: {}.", alarm.getReductionKey(), ex);
-                } else {
-                    eventsFailed.mark();
-                    eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                            .setUei(SEND_EVENT_SUCCESSFUL_UEI)
-                            .addParameter(ImmutableEventParameter.newBuilder()
-                                    .setName("reductionKey")
-                                    .setValue(alarm.getReductionKey())
-                                    .build())
-                            .build());
-                    LOG.info("handleNewOrUpdatedAlarm: Event sent successfully for alarm with reduction-key: {}", alarm.getReductionKey());
-                }
-            });
-
+        try {
+            apiClient.sendAlert(alert);
+            eventsForwarded.mark();
+            LOG.info("handleNewOrUpdatedAlarm: Event sent successfully for alarm with reduction-key: {}", alarm.getReductionKey());
+            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                    .setUei(SEND_EVENT_SUCCESSFUL_UEI)
+                    .addParameter(ImmutableEventParameter.newBuilder()
+                            .setName("reductionKey")
+                            .setValue(alarm.getReductionKey())
+                            .build())
+                    .build());
+        } catch (ApiException e) {
+            eventsFailed.mark();
+            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                    .setUei(SEND_EVENT_FAILED_UEI)
+                    .addParameter(ImmutableEventParameter.newBuilder()
+                            .setName("reductionKey")
+                            .setValue(alarm.getReductionKey())
+                            .build())
+                    .addParameter(ImmutableEventParameter.newBuilder()
+                            .setName("message")
+                            .setValue(e.getMessage())
+                            .build())
+                    .build());
+            LOG.warn("handleNewOrUpdatedAlarm: Failed Sending event for alarm with reduction-key: {}.", alarm.getReductionKey(), e);
+        }
     }
 
     @Override

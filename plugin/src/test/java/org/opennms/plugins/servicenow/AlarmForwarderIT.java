@@ -34,7 +34,6 @@ public class AlarmForwarderIT {
 
     @Rule
     public WireMockRule wireMockRule = new WireMockRule();
-    private final Logger LOG = LoggerFactory.getLogger(AlarmForwarderIT.class);
 
     @Test
     public void canForwardAlarm() throws JsonProcessingException {

@@ -17,13 +17,13 @@ public class AlarmForwarderTest {
 
     public static Alarm getAlarm() {
        return ImmutableAlarm.newBuilder()
-                .setId(1)
-                .setReductionKey(AlarmForwarder.ALARM_UEI_NODE_DOWN+":")
+                .setId(-10)
+                .setReductionKey(AlarmForwarder.ALARM_UEI_NODE_DOWN+":-10")
                 .setSeverity(Severity.CRITICAL)
                 .setDescription("Description")
                 .setLogMessage("LogMessage")
                 .setNode(ImmutableNode.newBuilder()
-                        .setId(1)
+                        .setId(-1)
                         .setLocation("Asia")
                         .setLabel("Node")
                         .setCategories(List.of("CategoryA", "CategoryB"))

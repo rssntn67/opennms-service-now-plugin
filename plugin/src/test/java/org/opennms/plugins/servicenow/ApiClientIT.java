@@ -1,6 +1,7 @@
 package org.opennms.plugins.servicenow;
 
 import org.junit.Test;
+import org.opennms.integration.api.v1.events.EventForwarder;
 import org.opennms.plugins.servicenow.client.ApiClient;
 import org.opennms.plugins.servicenow.client.ApiClientCredentials;
 import org.opennms.plugins.servicenow.client.ApiClientProvider;
@@ -8,6 +9,7 @@ import org.opennms.plugins.servicenow.client.ApiClientProviderImpl;
 import org.opennms.plugins.servicenow.client.ApiException;
 import org.opennms.plugins.servicenow.client.ClientManager;
 import org.opennms.plugins.servicenow.connection.Connection;
+import org.opennms.plugins.servicenow.connection.ConnectionManager;
 import org.opennms.plugins.servicenow.connection.ConnectionValidationError;
 import org.opennms.plugins.servicenow.model.Alert;
 
@@ -16,6 +18,8 @@ import java.util.Optional;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class ApiClientIT {
 
@@ -49,7 +53,6 @@ public class ApiClientIT {
         System.out.println("sending:" + up);
         client.sendAlert(up);
 
-        client.check();
         System.out.println("AccessToken: " + client.getToken());
 
     }
@@ -79,7 +82,7 @@ public class ApiClientIT {
     }
 
     @Test
-    public void canUseConnection() throws ApiException {
+    public void canUseConnectionAndForwardAlarm() throws ApiException {
         // Wire it up
         ApiClientProvider apiClientProvider = new ApiClientProviderImpl();
         ClientManager clientManager = new ClientManager(apiClientProvider);
@@ -91,6 +94,13 @@ public class ApiClientIT {
         System.out.println("refreshToken: " + client.getToken().getRefreshToken());
         System.out.println("tokenType: " + client.getToken().getTokenType());
         System.out.println("scope: " + client.getToken().getScope());
+        EventForwarder eventForwarder = mock(EventForwarder.class);
+        ConnectionManager connectionManager = mock(ConnectionManager.class);
+        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager,apiClientProvider, eventForwarder, "CategoryA");
+        when(connectionManager.getConnection()).thenReturn(Optional.of(new ConnectionTest()));
+
+        alarmForwarder.handleNewOrUpdatedAlarm(AlarmForwarderTest.getAlarm());
+
 
     }
 
