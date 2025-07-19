@@ -2,7 +2,6 @@ package org.opennms.plugins.servicenow;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -52,27 +51,33 @@ public class AlarmForwarderIT {
         response.setRefreshToken("refreshToken");
         response.setTokenType("TokenType");
         // Stub the endpoint
+        System.out.println(mapper.writeValueAsString(response));
         stubFor(post((urlEqualTo("//"+TOKEN_END_POINT)))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withBody((mapper.writeValueAsString(response))))
         );
 
-        stubFor(post((urlEqualTo("//"+ALERT_END_POINT)))
-                .willReturn(aResponse()
-                        .withStatus(200))
-);
+        stubFor(
+                post(
+                    urlEqualTo("//"+ALERT_END_POINT))
+                    .willReturn(aResponse()
+                    .withStatus(200)
+                )
+        );
+
+        alarmForwarder.handleNewOrUpdatedAlarm(AlarmForwarderTest.getAlarm());
 
         await().atMost(15, TimeUnit.SECONDS)
                 .catchUncaughtExceptions()
                 .until(() -> {
+                    verify(1, postRequestedFor(urlPathEqualTo("//"+TOKEN_END_POINT)));
                     verify(1, postRequestedFor(urlPathEqualTo("//"+ALERT_END_POINT)));
                     return true;
                 });
 
 
         // Handle some alarm
-        alarmForwarder.handleNewOrUpdatedAlarm(AlarmForwarderTest.getAlarm());
     }
 
     private class ConnectionTest implements Connection {
