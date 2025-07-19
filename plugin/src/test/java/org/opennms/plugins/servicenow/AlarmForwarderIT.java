@@ -11,6 +11,8 @@ import org.opennms.plugins.servicenow.client.ApiClientProviderImpl;
 import org.opennms.plugins.servicenow.connection.Connection;
 import org.opennms.plugins.servicenow.connection.ConnectionManager;
 import org.opennms.plugins.servicenow.model.TokenResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -32,6 +34,7 @@ public class AlarmForwarderIT {
 
     @Rule
     public WireMockRule wireMockRule = new WireMockRule();
+    private final Logger LOG = LoggerFactory.getLogger(AlarmForwarderIT.class);
 
     @Test
     public void canForwardAlarm() throws JsonProcessingException {
