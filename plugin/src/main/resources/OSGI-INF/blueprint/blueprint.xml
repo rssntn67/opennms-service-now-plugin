@@ -13,8 +13,6 @@
     </cm:property-placeholder>
     <!-- Pull in service implementations from the OSGi registry -->
     <reference id="alarmDao" interface="org.opennms.integration.api.v1.dao.AlarmDao" availability="optional"/>
-    <reference id="edgeDao" interface="org.opennms.integration.api.v1.dao.EdgeDao" availability="optional"/>
-    <reference id="eventForwarder" interface="org.opennms.integration.api.v1.events.EventForwarder" availability="optional"/>
 
     <!-- Build our API client -->
     <bean id="apiClientProvider" class="org.opennms.plugins.servicenow.client.ApiClientProviderImpl">
@@ -40,7 +38,6 @@
     <bean id="alarmForwarder" class="org.opennms.plugins.servicenow.AlarmForwarder">
         <argument ref="connectionManager"/>
         <argument ref="apiClientProvider"/>
-        <argument ref="eventForwarder"/>
         <argument value="${filter}"/>
     </bean>
     <!-- Expose the forwarder as a AlarmLifecycleListener so we get callbacks -->
@@ -55,11 +52,6 @@
         <service-properties>
             <entry key="application-path" value="/rest" />
         </service-properties>
-    </service>
-
-    <!-- Expose our custom event definitions bundled in the .jar -->
-    <service interface="org.opennms.integration.api.v1.config.events.EventConfExtension">
-        <bean class="org.opennms.plugins.servicenow.EventConfExtension"/>
     </service>
 
 </blueprint>

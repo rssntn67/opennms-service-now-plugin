@@ -17,12 +17,11 @@
         <junit.version>4.13.2</junit.version>
         <karaf.version>4.3.10</karaf.version>
         <log4j.version>2.23.1</log4j.version>
-        <metrics.version>4.1.12.1</metrics.version>
         <mockito.version>2.18.0</mockito.version>
         <okhttp.version>4.10.0</okhttp.version>
         <okhttp.bundle.version>4.10.0_3</okhttp.bundle.version>
         <okio.bundle.version>3.8.0_1</okio.bundle.version>
-        <opennms.api.version>1.6.1</opennms.api.version>
+        <opennms.api.version>1.6.0</opennms.api.version>
         <osgi.version>7.0.0</osgi.version>
         <osgi.compendium.version>5.0.0</osgi.compendium.version>
         <osgi.enterprise.version>5.0.0</osgi.enterprise.version>

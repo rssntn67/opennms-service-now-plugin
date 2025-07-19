@@ -5,14 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import org.junit.Rule;
 import org.junit.Test;
-import org.opennms.integration.api.v1.events.EventForwarder;
 import org.opennms.plugins.servicenow.client.ApiClientProvider;
 import org.opennms.plugins.servicenow.client.ApiClientProviderImpl;
 import org.opennms.plugins.servicenow.connection.Connection;
 import org.opennms.plugins.servicenow.connection.ConnectionManager;
 import org.opennms.plugins.servicenow.model.TokenResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -39,10 +36,9 @@ public class AlarmForwarderIT {
     public void canForwardAlarm() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
         // Wire it up
-        EventForwarder eventForwarder = mock(EventForwarder.class);
         ConnectionManager connectionManager = mock(ConnectionManager.class);
         ApiClientProvider apiClientProvider = new ApiClientProviderImpl();
-        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager,apiClientProvider, eventForwarder, "CategoryA");
+        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager,apiClientProvider, "CategoryA");
 
         when(connectionManager.getConnection()).thenReturn(Optional.of(new ConnectionTest()));
 

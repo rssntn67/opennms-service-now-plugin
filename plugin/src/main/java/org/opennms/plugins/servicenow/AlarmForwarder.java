@@ -1,13 +1,7 @@
 package org.opennms.plugins.servicenow;
 
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
 import org.opennms.integration.api.v1.alarms.AlarmLifecycleListener;
-import org.opennms.integration.api.v1.events.EventForwarder;
 import org.opennms.integration.api.v1.model.Alarm;
-import org.opennms.integration.api.v1.model.immutables.ImmutableEventParameter;
-import org.opennms.integration.api.v1.model.immutables.ImmutableInMemoryEvent;
-import org.opennms.plugins.servicenow.client.ApiClient;
 import org.opennms.plugins.servicenow.client.ApiClientProvider;
 import org.opennms.plugins.servicenow.client.ApiException;
 import org.opennms.plugins.servicenow.client.ClientManager;
@@ -25,33 +19,19 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     public static final String ALARM_UEI_NODE_DOWN = "uei.opennms.org/nodes/nodeDown";
     public static final String ALARM_UEI_INTERFACE_DOWN = "uei.opennms.org/nodes/interfaceDown";
     public static final String ALARM_UEI_SERVICE_DOWN = "uei.opennms.org/nodes/nodeLostService";
-    public static final String UEI_PREFIX = "uei.opennms.org/opennms-service-nowPlugin";
-    public static final String SEND_EVENT_FAILED_UEI = UEI_PREFIX + "/sendEventFailed";
-    public static final String SEND_EVENT_SUCCESSFUL_UEI = UEI_PREFIX + "/sendEventSuccessful";
-
-    private final MetricRegistry metrics = new MetricRegistry();
-    private final Meter eventsForwarded = metrics.meter("eventsForwarded");
-    private final Meter eventsFailed = metrics.meter("eventsFailed");
 
     private final ConnectionManager connectionManager;
     private final ApiClientProvider apiClientProvider;
-    private final EventForwarder eventForwarder;
     private final String filter;
 
-    public AlarmForwarder(ConnectionManager connectionManager, ApiClientProvider apiClientProvider, EventForwarder eventForwarder, String filter) {
+    public AlarmForwarder(ConnectionManager connectionManager, ApiClientProvider apiClientProvider, String filter) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
-        this.eventForwarder = Objects.requireNonNull(eventForwarder);
         this.filter = Objects.requireNonNull(filter);
     }
 
     @Override
     public void handleNewOrUpdatedAlarm(Alarm alarm) {
-        if (alarm.getReductionKey().startsWith(UEI_PREFIX)) {
-            // Never forward alarms that the plugin itself creates
-            return;
-        }
-
         LOG.debug("handleNewOrUpdatedAlarm: parsing alarm with reduction key: {}", alarm.getReductionKey());
         // Map the alarm to the corresponding model object that the API requires
         if (!alarm.getReductionKey().startsWith(ALARM_UEI_NODE_DOWN) &&
@@ -67,45 +47,15 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             return;
         }
 
-        ApiClient apiClient;
         try {
-            apiClient = apiClientProvider.client(ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
+            Alert alert = toAlert(alarm);
+            LOG.debug("handleNewOrUpdatedAlarm: converted to {}", alarm );
+            apiClientProvider.send(alert, ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
         } catch (ApiException e) {
             LOG.error("handleNewOrUpdatedAlarm: no forward: alarm {}, message: {}, body: {}",
                     alarm.getReductionKey(),
                     e.getMessage(),
                     e.getResponseBody(), e);
-            return;
-        }
-
-        Alert alert = toAlert(alarm);
-        LOG.debug("handleNewOrUpdatedAlarm: converted to {}", alarm );
-        // Forward the alarm
-        try {
-            apiClient.sendAlert(alert);
-            eventsForwarded.mark();
-            LOG.info("handleNewOrUpdatedAlarm: Event sent successfully for alarm with reduction-key: {}", alarm.getReductionKey());
-            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                    .setUei(SEND_EVENT_SUCCESSFUL_UEI)
-                    .addParameter(ImmutableEventParameter.newBuilder()
-                            .setName("reductionKey")
-                            .setValue(alarm.getReductionKey())
-                            .build())
-                    .build());
-        } catch (ApiException e) {
-            eventsFailed.mark();
-            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                    .setUei(SEND_EVENT_FAILED_UEI)
-                    .addParameter(ImmutableEventParameter.newBuilder()
-                            .setName("reductionKey")
-                            .setValue(alarm.getReductionKey())
-                            .build())
-                    .addParameter(ImmutableEventParameter.newBuilder()
-                            .setName("message")
-                            .setValue(e.getMessage())
-                            .build())
-                    .build());
-            LOG.warn("handleNewOrUpdatedAlarm: Failed Sending event for alarm with reduction-key: {}.", alarm.getReductionKey(), e);
         }
     }
 
@@ -167,7 +117,4 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         }
     }
 
-    public MetricRegistry getMetrics() {
-        return metrics;
-    }
 }

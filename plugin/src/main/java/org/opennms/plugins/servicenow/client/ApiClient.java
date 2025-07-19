@@ -20,7 +20,6 @@ import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Objects;
 
 public class ApiClient {
 
@@ -29,10 +28,9 @@ public class ApiClient {
 
     public static final String TOKEN_END_POINT = "token";
     public static final String ALERT_END_POINT = "minnovo/a2a/servicenow/1.0/crea_aggiorna_allarmi";
-    private OkHttpClient client = new OkHttpClient();
+    private final OkHttpClient clientTrueSsl = new OkHttpClient();
+    private final OkHttpClient clientIgnoreSsl = trustAllSslClient(clientTrueSsl);
     private final ObjectMapper mapper = new ObjectMapper();
-    private final ApiClientCredentials apiClientCredentials;
-    private TokenResponse tokenResponse;
 
     private static final TrustManager[] trustAllCerts = new TrustManager[] {
             new X509TrustManager() {
@@ -72,24 +70,22 @@ public class ApiClient {
         return builder.build();
     }
 
-    public ApiClient(ApiClientCredentials apiClientCredentials) throws ApiException {
-        this.apiClientCredentials = Objects.requireNonNull(apiClientCredentials);
 
-        if (apiClientCredentials.ignoreSslCertificateValidation) {
-            client = trustAllSslClient(client);
+    public TokenResponse getAccessToken(ApiClientCredentials credentials) throws ApiException {
+        OkHttpClient client;
+        if (credentials.ignoreSslCertificateValidation ) {
+            client = trustAllSslClient(clientIgnoreSsl);
+        } else {
+            client = clientTrueSsl;
         }
-        getAccessToken();
-    }
-
-    public TokenResponse getAccessToken() throws ApiException {
         FormBody formBody = new FormBody.Builder()
                 .add("grant_type", "client_credentials")
-                .add("client_id", apiClientCredentials.username)
-                .add("client_secret", apiClientCredentials.password)
+                .add("client_id", credentials.username)
+                .add("client_secret", credentials.password)
                 .build();
         Request request = new Request.Builder()
                 .header("Content-Type", "application/x-www-form-urlencoded")
-                .url(apiClientCredentials.url+"/"+ ApiClient.TOKEN_END_POINT)
+                .url(credentials.url+"/"+ ApiClient.TOKEN_END_POINT)
                 .post(formBody)
                 .build();
         try (Response response = client.newCall(request).execute()) {
@@ -103,30 +99,41 @@ public class ApiClient {
             }
             // Parse the response to get the access token
             assert response.body() != null;
-            this.tokenResponse = mapper.readValue(response.body().string(), TokenResponse.class);
+            String json= response.body().string();
+            return mapper.readValue(json, TokenResponse.class);
         } catch (IOException e) {
             throw new ApiException("Got IOException",e);
         }
-        return this.tokenResponse;
     }
 
-    public void sendAlert(Alert alert) throws ApiException {
-        doPost(alert);
+    public void sendAlert(Alert alert, ApiClientCredentials credentials, String tokenString) throws ApiException {
+        doPost(alert, credentials, tokenString);
     }
 
 
-    private void doPost(Object requestBodyPayload) throws ApiException {
+    private void doPost(Object requestBodyPayload, ApiClientCredentials credentials, String tokenString) throws ApiException {
+        OkHttpClient client;
+        if (credentials.ignoreSslCertificateValidation ) {
+            client = trustAllSslClient(clientIgnoreSsl);
+        } else {
+            client = clientTrueSsl;
+        }
         RequestBody body;
         try {
-            body = RequestBody.create(mapper.writeValueAsString(requestBodyPayload),JSON);
+            String jsonPayLoad = mapper.writeValueAsString(requestBodyPayload);
+            LOG.debug("doPost: body: \n{}",jsonPayLoad);
+            body = RequestBody.create(jsonPayLoad, JSON);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+            throw new ApiException("Error processing JSON", e);
         }
+
         Request request = new Request.Builder()
-                .url(apiClientCredentials.url+"/"+ ApiClient.ALERT_END_POINT)
-                .header("Authorization", "Bearer " + tokenResponse.getAccessToken())
+                .url(credentials.url+"/"+ ApiClient.ALERT_END_POINT)
+                .header("Authorization", "Bearer " + tokenString)
                 .post(body)
                 .build();
+
+        LOG.debug("doPost: requesting url: {}", request.url());
 
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
@@ -142,9 +149,4 @@ public class ApiClient {
         }
 
     }
-
-    public TokenResponse getToken() {
-        return tokenResponse;
-    }
-
 }

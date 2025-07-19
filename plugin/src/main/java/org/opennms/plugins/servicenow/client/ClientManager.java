@@ -23,7 +23,7 @@ public class ClientManager {
         try {
             ApiClientCredentials credentials = asApiClientCredentials(connection);
             LOG.warn("validate: {}", credentials);
-            clientProvider.client(credentials);
+            clientProvider.validate(credentials);
             return Optional.empty();
         } catch (ApiException e) {
             LOG.error("validate: {} failed", connection, e);

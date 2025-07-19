@@ -1,12 +1,15 @@
 package org.opennms.plugins.servicenow.client;
 
+import org.opennms.plugins.servicenow.model.Alert;
+
 public interface ApiClientProvider {
     /**
-     * Create a client WSO2 Api .
+     * Send Alert to client WSO2 Api .
      *
+     * @param alert the alert to send data.
      * @param credentials the credentials to use for the client.
-     * @return a ApiClient client
      */
-    ApiClient client(final ApiClientCredentials credentials) throws ApiException;
+    void send(Alert alert, final ApiClientCredentials credentials) throws ApiException;
 
+    void validate(ApiClientCredentials credentials) throws ApiException;
 }
