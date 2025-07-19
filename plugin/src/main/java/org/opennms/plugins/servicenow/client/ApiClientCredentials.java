@@ -87,7 +87,7 @@ public class ApiClientCredentials {
         return "ApiClientCredentials{" +
                 "url='" + url + '\'' +
                 ", username='" + username + '\'' +
-                ", password='" + password + '\'' +
+                ", password='****" + '\'' +
                 ", ignoreSslCertificateValidation=" + ignoreSslCertificateValidation +
                 '}';
     }

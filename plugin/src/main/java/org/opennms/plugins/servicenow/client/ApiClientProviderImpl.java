@@ -14,13 +14,15 @@ public class ApiClientProviderImpl implements ApiClientProvider {
     ApiClientCredentials credentials;
     @Override
     public ApiClient client(ApiClientCredentials credentials) throws ApiException {
-        LOG.warn("client: {}", credentials);
-        if (this.credentials == null || !this.credentials.equals(credentials) ) {
-            LOG.warn("client: building new api client from: {}", credentials);
-            this.credentials = credentials;
-            this.apiClient = new ApiClient(credentials);
+        LOG.debug("client: {}", credentials);
+        if (this.credentials != null && this.credentials.equals(credentials) && this.apiClient != null) {
+            LOG.info("client: found existing {}, for: {}",apiClient, credentials);
+            return this.apiClient;
         }
-        return apiClient;
+        LOG.info("client: building new api client from: {}", credentials);
+        this.apiClient = new ApiClient(credentials);
+        this.credentials = credentials;
+        return this.apiClient;
     }
 
 }
