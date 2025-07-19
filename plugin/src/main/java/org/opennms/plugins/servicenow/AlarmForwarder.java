@@ -52,15 +52,18 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             return;
         }
 
+        LOG.info("handleNewOrUpdatedAlarm: parsing alarm with reduction key: {}", alarm.getReductionKey());
         // Map the alarm to the corresponding model object that the API requires
         if (!alarm.getReductionKey().startsWith(ALARM_UEI_NODE_DOWN) &&
             !alarm.getReductionKey().startsWith(ALARM_UEI_INTERFACE_DOWN) &&
             !(alarm.getReductionKey().startsWith(ALARM_UEI_SERVICE_DOWN) && alarm.getReductionKey().endsWith("ICMP"))
             )
         {
+            LOG.info("handleNewOrUpdatedAlarm: not matching uei, skipping alarm with reduction key: {}", alarm.getReductionKey());
             return;
         }
         if (!alarm.getNode().getCategories().contains(filter)) {
+            LOG.info("handleNewOrUpdatedAlarm: not matching filter {}, skipping alarm with reduction key: {}", filter, alarm.getReductionKey());
             return;
         }
 
@@ -88,7 +91,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
                                     .setValue(ex.getMessage())
                                     .build())
                             .build());
-                    LOG.warn("Sending event for alarm with reduction-key: {} failed.", alarm.getReductionKey(), ex);
+                    LOG.warn("handleNewOrUpdatedAlarm: Failed Sending event for alarm with reduction-key: {}.", alarm.getReductionKey(), ex);
                 } else {
                     eventsFailed.mark();
                     eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
@@ -98,7 +101,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
                                     .setValue(alarm.getReductionKey())
                                     .build())
                             .build());
-                    LOG.info("Event sent successfully for alarm with reduction-key: {}", alarm.getReductionKey());
+                    LOG.info("handleNewOrUpdatedAlarm: Event sent successfully for alarm with reduction-key: {}", alarm.getReductionKey());
                 }
             });
 
