@@ -1,5 +1,7 @@
 package org.opennms.plugins.servicenow;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Test;
 import org.opennms.integration.api.v1.model.Alarm;
 import org.opennms.integration.api.v1.model.Severity;
@@ -35,10 +37,12 @@ public class AlarmForwarderTest {
 
     }
     @Test
-    public void canConvertAlarmToAlert() {
+    public void canConvertAlarmToAlert() throws JsonProcessingException {
 
         Alert alert = AlarmForwarder.toAlert(getAlarm());
 
         assertThat(alert.getSeverity(), equalTo(Alert.Severity.CRITICAL));
+        ObjectMapper mapper = new ObjectMapper();
+        System.out.println(mapper.writeValueAsString(alert));
     }
 }
