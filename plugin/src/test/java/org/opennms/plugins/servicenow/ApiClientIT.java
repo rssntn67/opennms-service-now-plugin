@@ -24,9 +24,9 @@ import static org.mockito.Mockito.when;
 
 public class ApiClientIT {
 
-    public static final String URL = "https://api.comune.milano.it";
-    public static final String USERNAME = "tGYTYVdYI3QbCYTDwl7KlX6O9cwa";
-    public static final String PASSWORD = "ephwrDnFbnK7tQj7IaHndNPNTv8a";
+    public static final String URL = "https://api.example.it";
+    public static final String USERNAME = "user";
+    public static final String PASSWORD = "pass";
 
     private final static String response = "{\"access_token\":\"eyJ4NXQiOiJPV1E1TURkak9EVTFaamt6TnpSaE5UbGxNak5sWkdFME9UWXdZMlF3WXpoak1UZGlNbU16Tm1VeE1ESTVZamMyTlRnMVl6TmtPRGhoTmpBM05HWmlPQSIsImtpZCI6Ik9XUTVNRGRqT0RVMVpqa3pOelJoTlRsbE1qTmxaR0UwT1RZd1kyUXdZemhqTVRkaU1tTXpObVV4TURJNVlqYzJOVGcxWXpOa09EaGhOakEzTkdaaU9BX1JTMjU2IiwidHlwIjoiYXQrand0IiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJ2YWxlcmlvLm1hc2Nhcm8iLCJhdXQiOiJBUFBMSUNBVElPTiIsImF1ZCI6InRHWVRZVmRZSTNRYkNZVER3bDdLbFg2Tzljd2EiLCJiaW5kaW5nX3R5cGUiOiJyZXF1ZXN0IiwibmJmIjoxNzUyOTQ3ODY0LCJhenAiOiJ0R1lUWVZkWUkzUWJDWVREd2w3S2xYNk85Y3dhIiwiaXNzIjoiaHR0cHM6XC9cL2FwaWtzLmNvbXVuZS5taWxhbm8uaXQ6OTQ0NFwvb2F1dGgyXC90b2tlbiIsImV4cCI6MTc1Mjk1MTQ2NCwiaWF0IjoxNzUyOTQ3ODY0LCJiaW5kaW5nX3JlZiI6IjMyZjU3MDNlZjMwMmRkZjJlZTBkZDM2YjJhYjg1NDI3IiwianRpIjoiZjI3NjkwZDUtNmNhZi00YTBkLWIxYzgtOGM5NzcyMTg4ZmEwIiwiY2xpZW50X2lkIjoidEdZVFlWZFlJM1FiQ1lURHdsN0tsWDZPOWN3YSJ9.TTv0Xtc6qCqcNSb-qvgE8k6XexBE-yVvaLqCbXQmzMoB0TJkWtn9MW3gyYaC5unkl4WvDReOPJKWdHLvoURBB23REMaoBiv-F4TZuuT1uBiArj4EF4ZvDweKWgz5hgFabpWu4puFc7VY7y1_cFrksKqbeTbPRmzMeNN37EfGxPed-_PEPyb32LxT4UIHLmfPftrByJpLwejV2L0Z23RVQ1EjnySLL7vetXh91oMEPOaXkrB9Fp6QWggMGd_RKCnRO4ey237ddEjj3baKkteajmdvoG4TphjzQB1tPMLVAEz2NmEqYrXIKPJCkInHZGMW8cL1uUMex9H2SSotZM9uKg\",\"token_type\":\"Bearer\",\"expires_in\":3600}";
     public static ApiClientCredentials getCredentials() {
