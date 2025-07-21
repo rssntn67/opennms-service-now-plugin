@@ -57,7 +57,7 @@ public class ApiClientIT {
         Thread.sleep(5000);
         System.out.println("slept");
 
-        Alert up = getTestAlert(Alert.Severity.NORMAL, Alert.Status.UP);
+        Alert up = getTestAlert(Alert.Severity.CLEAR, Alert.Status.UP);
         System.out.println("sending:" + up);
         client.sendAlert(up, getCredentials(), token.getAccessToken());
 
