@@ -42,6 +42,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             LOG.debug("handleNewOrUpdatedAlarm: not matching uei, skipping alarm with reduction key: {}", alarm.getReductionKey());
             return;
         }
+        LOG.debug("handleNewOrUpdatedAlarm: categories {}", alarm.getNode().getCategories());
         if (!alarm.getNode().getCategories().contains(filter)) {
             LOG.debug("handleNewOrUpdatedAlarm: not matching filter {}, skipping alarm with reduction key: {}", filter, alarm.getReductionKey());
             return;
@@ -83,11 +84,14 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         alert.setAsset(alarm.getNode().getAssetRecord().getDescription());
         alert.setAlertTags(alarm.getNode().getCategories().toString());
         alert.setStatus(toStatus(alarm));
+        alarm.
         return alert;
     }
 
     private static Alert.Severity toSeverity(Alarm alarm) {
         switch (alarm.getSeverity()) {
+            case CLEARED:
+                return Alert.Severity.CLEAR;
             case WARNING:
                 return Alert.Severity.WARNING;
             case MINOR:
@@ -97,7 +101,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             case CRITICAL:
                 return Alert.Severity.CRITICAL;
             default:
-                return Alert.Severity.NORMAL;
+                return Alert.Severity.OK;
         }
     }
 

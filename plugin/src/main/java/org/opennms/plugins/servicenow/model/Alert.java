@@ -180,11 +180,12 @@ public class Alert {
     }
 
     public enum Severity {
-        NORMAL("0"),
-        WARNING("1"),
-        MINOR("2"),
-        MAJOR("3"),
-        CRITICAL("4");
+        CLEAR("0"),
+        OK("5"),
+        WARNING("4"),
+        MINOR("3"),
+        MAJOR("2"),
+        CRITICAL("1");
 
         private final String text;
 
@@ -210,8 +211,8 @@ public class Alert {
     }
 
     public enum Status {
-        UP("0"),
-        DOWN("1");
+        UP("1"),
+        DOWN("0");
 
         private final String text;
 
