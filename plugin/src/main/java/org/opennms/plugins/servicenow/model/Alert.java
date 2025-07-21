@@ -21,7 +21,7 @@ public class Alert {
     private String id;
 
     @JsonProperty("sys_created_on")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd hh:mm:ss")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Europe/Rome")
     private Date time;
 
     @JsonProperty("source")
