@@ -11,6 +11,7 @@ import org.opennms.integration.api.v1.model.immutables.ImmutableNode;
 import org.opennms.integration.api.v1.model.immutables.ImmutableNodeAssetRecord;
 import org.opennms.plugins.servicenow.AlarmForwarder;
 
+import java.util.Date;
 import java.util.List;
 
 @Command(scope = "opennms-service-now", name = "send-down-alarm", description = "Send Test Alarm Down.")
@@ -33,6 +34,8 @@ public class SendDownAlarmCommand implements Action {
                 .setSeverity(Severity.CRITICAL)
                 .setDescription("Description Test Node Down ")
                 .setLogMessage("Node Down Test")
+                .setFirstEventTime(new Date())
+                .setLastEventTime(new Date())
                 .setNode(ImmutableNode.newBuilder()
                         .setId(-1)
                         .setLocation("Asia")
