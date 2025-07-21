@@ -1,6 +1,7 @@
 package org.opennms.plugins.servicenow.model;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -9,11 +10,19 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.Objects;
 
 @JsonAutoDetect(fieldVisibility=JsonAutoDetect.Visibility.NONE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class Alert {
+
+    @JsonProperty("u_id_alert_opennms")
+    private String id;
+
+    @JsonProperty("sys_created_on")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd hh:mm:ss")
+    private Date time;
 
     @JsonProperty("source")
     private String source;
@@ -43,7 +52,7 @@ public class Alert {
     @JsonProperty("node")
     private String node;
 
-    @JsonProperty("asset")
+    @JsonProperty("cmdb_ci")
     private String asset;
 
     @JsonProperty("alert_tags")
@@ -52,6 +61,23 @@ public class Alert {
     @JsonProperty("status")
     @JsonSerialize(using = Status.Serializer.class)
     private Status status;
+
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public Date getTime() {
+        return time;
+    }
+
+    public void setTime(Date time) {
+        this.time = time;
+    }
 
     public String getSource() {
         return source;
@@ -160,18 +186,22 @@ public class Alert {
 
     @Override
     public int hashCode() {
-        return Objects.hash(status, asset, description, key);
+        return Objects.hash(id);
     }
 
     @Override
     public String toString() {
         return "Alert{" +
-                "source='" + source + '\'' +
+                "id='" + id + '\'' +
+                ", time=" + time +
+                ", source='" + source + '\'' +
                 ", type='" + type + '\'' +
-                ", severity='" + severity + '\'' +
+                ", maintenance=" + maintenance +
+                ", severity=" + severity +
                 ", description='" + description + '\'' +
                 ", metricName='" + metricName + '\'' +
                 ", key='" + key + '\'' +
+                ", resource='" + resource + '\'' +
                 ", node='" + node + '\'' +
                 ", asset='" + asset + '\'' +
                 ", alertTags='" + alertTags + '\'' +

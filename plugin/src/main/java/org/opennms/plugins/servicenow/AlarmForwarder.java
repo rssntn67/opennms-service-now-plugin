@@ -72,6 +72,8 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
     public static Alert toAlert(Alarm alarm) {
         Alert alert = new Alert();
+        alert.setId(""+alarm.getId());
+        alert.setTime(alarm.getLastEventTime());
         alert.setSource(alarm.getNode().getLocation());
         alert.setType("opennms network alarm");
         alert.setSeverity(toSeverity(alarm));
@@ -79,9 +81,9 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         alert.setDescription(alarm.getDescription());
         alert.setMetricName(alarm.getReductionKey()+alarm.getId());
         alert.setKey(alarm.getLogMessage());
-        alert.setResource(alarm.getNode().getId().toString());
+        alert.setResource(alarm.getNode().getAssetRecord().getDescription());
         alert.setNode(alarm.getNode().getLabel());
-        alert.setAsset(alarm.getNode().getAssetRecord().getDescription());
+        alert.setAsset(alarm.getNode().getId().toString());
         alert.setAlertTags(alarm.getNode().getCategories().toString());
         alert.setStatus(toStatus(alarm));
         return alert;
