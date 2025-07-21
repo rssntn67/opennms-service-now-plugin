@@ -1,6 +1,7 @@
 package org.opennms.plugins.servicenow.shell;
 
 import org.apache.karaf.shell.api.action.Action;
+import org.apache.karaf.shell.api.action.Argument;
 import org.apache.karaf.shell.api.action.Command;
 import org.apache.karaf.shell.api.action.lifecycle.Reference;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
@@ -21,28 +22,41 @@ public class SendUpAlarmCommand implements Action {
     @Reference
     private AlarmForwarder forwarder;
 
+    @Argument(name = "alarmId", description = "Alarm Id", required = true)
+    public int alarmId = -1000;
+
+    @Argument(index = 1, name = "nodeId", description = "nodeid of the asset", required = true)
+    public int nodeId = -1;
+
     @Override
     public Object execute() {
-        forwarder.handleNewOrUpdatedAlarm(getAlarm());
+        forwarder.handleNewOrUpdatedAlarm(getAlarm(this.alarmId, this.nodeId));
         return null;
     }
 
-    public static Alarm getAlarm() {
+    public static Alarm getAlarm(int alarmId, int nodeId) {
+        String nodeLabel = "Test-"+nodeId;
         return ImmutableAlarm.newBuilder()
-                .setId(-1000)
-                .setReductionKey(AlarmForwarder.ALARM_UEI_NODE_DOWN+":-1")
+                .setId(alarmId)
+                .setReductionKey(AlarmForwarder.ALARM_UEI_NODE_DOWN+":"+nodeId)
                 .setSeverity(Severity.CLEARED)
-                .setDescription("Description Test Node Up ")
-                .setLogMessage("Node Up Test")
+                .setDescription("&lt;p>Node " +
+                        nodeLabel +
+                        " which was previously down is\n" +
+                        "            now up.&lt;/p> &lt;p>This event is generated when node\n" +
+                        "            outage processing determines that all interfaces on the node\n" +
+                        "            are up.&lt;/p> &lt;p>This event will cause any active\n" +
+                        "            outages associated with this node to be cleared.&lt;/p>")
+                .setLogMessage("Node "+nodeLabel+" is up.")
                 .setFirstEventTime(new Date())
                 .setLastEventTime(new Date())
                 .setNode(ImmutableNode.newBuilder()
-                        .setId(-1)
+                        .setId(nodeId)
                         .setLocation("Asia")
-                        .setLabel("Node")
+                        .setLabel(nodeLabel)
                         .setCategories(List.of("CategoryA", "CategoryB", "Minnovo"))
                         .setAssetRecord(ImmutableNodeAssetRecord.newBuilder()
-                                .setDescription("AssetRecordDescription")
+                                .setDescription("AssetRecord.Description")
                                 .build())
                         .build()
                 ).build();

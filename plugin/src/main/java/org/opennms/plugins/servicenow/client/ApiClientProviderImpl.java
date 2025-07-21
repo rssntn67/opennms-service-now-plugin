@@ -36,7 +36,7 @@ public class ApiClientProviderImpl implements ApiClientProvider {
 
     @Override
     public void send(Alert alert, ApiClientCredentials credentials) throws ApiException {
-        LOG.debug("send: {}, {}", credentials,alert);
+        LOG.debug("send: {}, {}", credentials, alert);
         if (this.credentials != null && this.credentials.equals(credentials) ) {
             LOG.info("client: found: {}", credentials);
             checkExpiresAt();

@@ -121,7 +121,7 @@ public class ApiClient {
         RequestBody body;
         try {
             String jsonPayLoad = mapper.writeValueAsString(requestBodyPayload);
-            LOG.debug("doPost: body: \n{}",jsonPayLoad);
+            LOG.debug("doPost: body: \\n {}", jsonPayLoad);
             body = RequestBody.create(jsonPayLoad, JSON);
         } catch (JsonProcessingException e) {
             throw new ApiException("Error processing JSON", e);
