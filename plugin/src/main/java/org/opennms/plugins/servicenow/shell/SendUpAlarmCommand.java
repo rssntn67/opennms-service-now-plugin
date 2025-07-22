@@ -40,13 +40,13 @@ public class SendUpAlarmCommand implements Action {
                 .setId(alarmId)
                 .setReductionKey(AlarmForwarder.ALARM_UEI_NODE_DOWN+":"+nodeId)
                 .setSeverity(Severity.CLEARED)
-                .setDescription("&lt;p>Node " +
+                .setDescription("<p>Node " +
                         nodeLabel +
-                        " which was previously down is\n" +
-                        "            now up.&lt;/p> &lt;p>This event is generated when node\n" +
-                        "            outage processing determines that all interfaces on the node\n" +
-                        "            are up.&lt;/p> &lt;p>This event will cause any active\n" +
-                        "            outages associated with this node to be cleared.&lt;/p>")
+                        " which was previously down is" +
+                        " now up.</p> <p>This event is generated when node" +
+                        " outage processing determines that all interfaces on the node" +
+                        " are up.</p> <p>This event will cause any active" +
+                        " outages associated with this node to be cleared.</p>")
                 .setLogMessage("Node "+nodeLabel+" is up.")
                 .setFirstEventTime(new Date())
                 .setLastEventTime(new Date())

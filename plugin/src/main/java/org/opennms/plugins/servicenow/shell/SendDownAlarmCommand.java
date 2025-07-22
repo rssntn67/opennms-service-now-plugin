@@ -40,15 +40,15 @@ public class SendDownAlarmCommand implements Action {
                 .setId(alarmId)
                 .setReductionKey(AlarmForwarder.ALARM_UEI_NODE_DOWN+":"+nodeId)
                 .setSeverity(Severity.MAJOR)
-                .setDescription("&lt;p>All interfaces on node " +
+                .setDescription("<p>All interfaces on node " +
                         nodeLabel +
-                        " are\n" +
-                        "            down because of the following condition: %parm[eventReason]%.&lt;/p> &lt;p>\n" +
-                        "            This event is generated when node outage processing determines\n" +
-                        "            that all interfaces on the node are down.&lt;/p> &lt;p>\n" +
-                        "            New outage records have been created and service level\n" +
-                        "            availability calculations will be impacted until this outage\n" +
-                        "            is resolved.&lt;/p>")
+                        " are" +
+                        " down because of the following condition: generated test by service now plugin</p> <p>" +
+                        " This event is generated when node outage processing determines" +
+                        " that all interfaces on the node are down.</p> <p>" +
+                        " New outage records have been created and service level" +
+                        " availability calculations will be impacted until this outage" +
+                        " is resolved.</p>")
                 .setLogMessage("Node "+nodeLabel+" is down.")
                 .setFirstEventTime(new Date())
                 .setLastEventTime(new Date())
