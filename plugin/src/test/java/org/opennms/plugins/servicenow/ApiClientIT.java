@@ -15,6 +15,7 @@ import org.opennms.plugins.servicenow.model.Alert;
 import org.opennms.plugins.servicenow.model.TokenResponse;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -71,8 +72,8 @@ public class ApiClientIT {
         alert.setKey("TEST Message Key");
         alert.setResource("Id");
         alert.setNode("Hostname");
-        alert.setAsset("AssetRecord.Description");
-        alert.setAlertTags("Test,Minnovo,OpenNMS.PlugIn");
+        alert.setAsset("50");
+        alert.setAlertTags(List.of("Test","Minnovo","OpenNMS.PlugIn").toString());
         alert.setStatus(status);
         return alert;
     }
