@@ -8,6 +8,7 @@ import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.opennms.integration.api.v1.model.Alarm;
 import org.opennms.integration.api.v1.model.Severity;
 import org.opennms.integration.api.v1.model.immutables.ImmutableAlarm;
+import org.opennms.integration.api.v1.model.immutables.ImmutableMetaData;
 import org.opennms.integration.api.v1.model.immutables.ImmutableNode;
 import org.opennms.integration.api.v1.model.immutables.ImmutableNodeAssetRecord;
 import org.opennms.plugins.servicenow.AlarmForwarder;
@@ -57,6 +58,9 @@ public class SendDownAlarmCommand implements Action {
                         .setLocation("Asia")
                         .setLabel(nodeLabel)
                         .setCategories(List.of("CategoryA", "CategoryB", "Minnovo"))
+                        .addMetaData(ImmutableMetaData.newBuilder().setContext("provision")
+                                .setKey("parent")
+                                .setValue("parentNodeLabel").build())
                         .setAssetRecord(ImmutableNodeAssetRecord.newBuilder()
                                 .setDescription("AssetRecord.Description")
                                 .build())

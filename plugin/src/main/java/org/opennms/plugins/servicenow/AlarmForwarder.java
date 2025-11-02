@@ -24,10 +24,13 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     private final ApiClientProvider apiClientProvider;
     private final String filter;
 
-    public AlarmForwarder(ConnectionManager connectionManager, ApiClientProvider apiClientProvider, String filter) {
+    private final EdgeService edgeService;
+
+    public AlarmForwarder(ConnectionManager connectionManager, ApiClientProvider apiClientProvider, String filter, EdgeService edgeservice) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
         this.filter = Objects.requireNonNull(filter);
+        this.edgeService = Objects.requireNonNull(edgeservice);
     }
 
     @Override
@@ -49,7 +52,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         }
 
         try {
-            Alert alert = toAlert(alarm);
+            Alert alert = toAlert(alarm, edgeService.getParentalNodeLabel(alarm.getNode()));
             LOG.debug("handleNewOrUpdatedAlarm: converted to {}", alert );
             apiClientProvider.send(alert, ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             LOG.info("handleNewOrUpdatedAlarm: forwarded {}", alert.getId() );
@@ -71,7 +74,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         // pass
     }
 
-    public static Alert toAlert(Alarm alarm) {
+    public static Alert toAlert(Alarm alarm, String parentNodeLabel) {
         Alert alert = new Alert();
         alert.setId(""+alarm.getId());
         alert.setTime(alarm.getLastEventTime());
@@ -87,6 +90,8 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         alert.setAsset(alarm.getNode().getId().toString());
         alert.setAlertTags(alarm.getNode().getCategories().toString());
         alert.setStatus(toStatus(alarm));
+        alert.setParentalNodeLabel(parentNodeLabel);
+
         return alert;
     }
 

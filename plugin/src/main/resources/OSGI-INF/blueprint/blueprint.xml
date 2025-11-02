@@ -9,10 +9,16 @@
     <cm:property-placeholder id="opennms-service-nowPluginProperties" persistent-id="org.opennms.plugins.servicenow" update-strategy="reload">
         <cm:default-properties>
             <cm:property name="filter" value="Minnovo" />
+            <cm:property name="service.initial.delay" value="5000" />
+            <cm:property name="service.delay" value="3600000" />
+            <cm:property name="metadata.context" value="provision" />
+            <cm:property name="metadata.parent.key" value="parent" />
+            <cm:property name="metadata.gateway.key" value="gateway" />
         </cm:default-properties>
     </cm:property-placeholder>
     <!-- Pull in service implementations from the OSGi registry -->
-    <reference id="alarmDao" interface="org.opennms.integration.api.v1.dao.AlarmDao" availability="optional"/>
+    <reference id="edgeDao" interface="org.opennms.integration.api.v1.dao.EdgeDao" availability="optional"/>
+    <reference id="nodeDao" interface="org.opennms.integration.api.v1.dao.NodeDao" availability="optional"/>
 
     <!-- Build our API client -->
     <bean id="apiClientProvider" class="org.opennms.plugins.servicenow.client.ApiClientProviderImpl">
@@ -34,11 +40,23 @@
     </bean>
     <service ref="connectionManager" interface="org.opennms.plugins.servicenow.connection.ConnectionManager"/>
 
+    <bean id="edgeService" class="org.opennms.plugins.servicenow.EdgeService" destroy-method="destroy">
+        <argument ref="edgeDao"/>
+        <argument ref="nodeDao"/>
+        <argument value="${service.initial.delay}"/>
+        <argument value="${service.delay}"/>
+        <argument value="${metadata.context}"/>
+        <argument value="${metadata.parent.key}"/>
+        <argument value="${metadata.gateway.key}"/>
+    </bean>
+    <service interface="org.opennms.integration.api.v1.health.HealthCheck" ref="edgeService"/>
+
     <!-- Build our forwarder bean -->
     <bean id="alarmForwarder" class="org.opennms.plugins.servicenow.AlarmForwarder">
         <argument ref="connectionManager"/>
         <argument ref="apiClientProvider"/>
         <argument value="${filter}"/>
+        <argument ref="edgeService"/>
     </bean>
     <!-- Expose the forwarder as a AlarmLifecycleListener so we get callbacks -->
     <service interface="org.opennms.integration.api.v1.alarms.AlarmLifecycleListener" ref="alarmForwarder"/>

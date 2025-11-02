@@ -62,6 +62,16 @@ public class Alert {
     @JsonSerialize(using = Status.Serializer.class)
     private Status status;
 
+    public String getParentalNodeLabel() {
+        return parentalNodeLabel;
+    }
+
+    public void setParentalNodeLabel(String parentalNodeLabel) {
+        this.parentalNodeLabel = parentalNodeLabel;
+    }
+
+    @JsonProperty("u_parental_node_opennms")
+    private String parentalNodeLabel;
 
     public String getId() {
         return id;
