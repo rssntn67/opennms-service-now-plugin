@@ -87,7 +87,14 @@ public class EdgeService implements Runnable, HealthCheck , TopologyEdgeConsumer
 
     Map<String, String> parentMap = new HashMap<>();
 
-    public EdgeService(EdgeDao edgeDao, NodeDao nodeDao, long initialDelay, long delay, String filter, String context, String parentKey, String gatewayKey) {
+    public EdgeService(EdgeDao edgeDao,
+                       NodeDao nodeDao,
+                       String initialDelay,
+                       String delay,
+                       String filter,
+                       String context,
+                       String parentKey,
+                       String gatewayKey) {
         this.edgeDao = Objects.requireNonNull(edgeDao);
         this.nodeDao = Objects.requireNonNull(nodeDao);
         this.context = Objects.requireNonNull(context);
@@ -96,7 +103,8 @@ public class EdgeService implements Runnable, HealthCheck , TopologyEdgeConsumer
         this.filter = Objects.requireNonNull(filter);
 
         ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-        scheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(this, initialDelay, delay, TimeUnit.MILLISECONDS);
+        scheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(this, Long.parseLong(initialDelay),
+                Long.parseLong(delay), TimeUnit.MILLISECONDS);
 
     }
 
@@ -156,4 +164,10 @@ public class EdgeService implements Runnable, HealthCheck , TopologyEdgeConsumer
     public Set<TopologyProtocol> getProtocols() {
         return Set.of(edgeDao.getProtocols().toArray(new TopologyProtocol[0]));
     }
+
+    public void destroy() {
+        LOG.debug("EdgeService is shutting down.");
+        scheduledFuture.cancel(true);
+    }
+
 }
