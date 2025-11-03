@@ -95,9 +95,9 @@ public class EdgeService implements Runnable, HealthCheck , TopologyEdgeConsumer
         this.gatewayKey = Objects.requireNonNull(gatewayKey);
         this.filter = Objects.requireNonNull(filter);
 
-        try (ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor()) {
-            scheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(this, initialDelay, delay, TimeUnit.MILLISECONDS);
-        }
+        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        scheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(this, initialDelay, delay, TimeUnit.MILLISECONDS);
+
     }
 
     public String getParentalNodeLabelById(int nodeid) {
