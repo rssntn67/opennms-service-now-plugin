@@ -10,8 +10,12 @@ import org.opennms.integration.api.v1.health.immutables.ImmutableResponse;
 import org.opennms.integration.api.v1.model.MetaData;
 import org.opennms.integration.api.v1.model.Node;
 import org.opennms.integration.api.v1.model.TopologyEdge;
+import org.opennms.integration.api.v1.model.TopologyPort;
 import org.opennms.integration.api.v1.model.TopologyProtocol;
+import org.opennms.integration.api.v1.model.TopologySegment;
 import org.opennms.integration.api.v1.topology.TopologyEdgeConsumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -35,13 +39,30 @@ public class EdgeService implements Runnable, HealthCheck , TopologyEdgeConsumer
 
         @Override
         public void visitSource(Node node) {
+            LOG.info("EdgeServiceVisitor:visitSource:Node {}", node);
             if (node.getCategories().contains(filter))
                 child = node.getLabel();
         }
 
         @Override
         public void visitTarget(Node node) {
+            LOG.info("EdgeServiceVisitor:visitTarget:Node {}", node);
             parent = node.getLabel();
+        }
+
+        @Override
+        public void visitSource(TopologyPort port) {
+            LOG.info("EdgeServiceVisitor:visitSource:TopologyPort {}", port);
+        }
+
+        @Override
+        public void visitTarget(TopologyPort port) {
+            LOG.info("EdgeServiceVisitor:visitTarget:TopologyPort {}", port);
+        }
+
+        @Override
+        public void visitTarget(TopologySegment segment) {
+            LOG.info("EdgeServiceVisitor:visitTarget:TopologySegment {}", segment);
         }
 
         public String getParent() {
@@ -54,6 +75,7 @@ public class EdgeService implements Runnable, HealthCheck , TopologyEdgeConsumer
 
     }
 
+    private static final Logger LOG = LoggerFactory.getLogger(EdgeService.class);
     private final NodeDao nodeDao;
     private final EdgeDao edgeDao;
     private final String context;

@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Test;
 import org.opennms.integration.api.v1.model.Alarm;
+import org.opennms.integration.api.v1.model.MetaData;
 import org.opennms.integration.api.v1.model.Severity;
 import org.opennms.integration.api.v1.model.immutables.ImmutableAlarm;
+import org.opennms.integration.api.v1.model.immutables.ImmutableMetaData;
 import org.opennms.integration.api.v1.model.immutables.ImmutableNode;
 import org.opennms.integration.api.v1.model.immutables.ImmutableNodeAssetRecord;
 import org.opennms.plugins.servicenow.model.Alert;
@@ -47,6 +49,9 @@ public class AlarmForwarderTest {
                         .setLocation("Asia")
                         .setLabel(nodeLabel)
                         .setCategories(List.of("CategoryA", "CategoryB"))
+                        .addMetaData(ImmutableMetaData.newBuilder().setContext("provision")
+                                .setKey("parent")
+                                .setValue("parentNodeLabel").build())
                         .setAssetRecord(ImmutableNodeAssetRecord.newBuilder()
                                 .setDescription("AssetRecordDescription")
                                 .build())
@@ -57,7 +62,12 @@ public class AlarmForwarderTest {
     @Test
     public void canConvertAlarmToAlert() throws JsonProcessingException {
 
-        Alert alert = AlarmForwarder.toAlert(getAlarm());
+        Alarm alarm = getAlarm();
+        MetaData medata = alarm.getNode().getMetaData().stream().findFirst().get();
+        assertThat(medata.getContext(), equalTo("provision"));
+        assertThat(medata.getKey(), equalTo("parent"));
+        assertThat(medata.getValue(), equalTo("parentNodeLabel"));
+        Alert alert = AlarmForwarder.toAlert(getAlarm(), medata.getValue());
         ObjectMapper mapper = new ObjectMapper();
         System.out.println(mapper.writeValueAsString(alert));
 
@@ -69,10 +79,12 @@ public class AlarmForwarderTest {
         assertThat(alert.getDescription(), equalTo(description.replaceAll("<p>","").replaceAll("</p>","\n")));
         assertThat(alert.getSeverity(), equalTo(Alert.Severity.MAJOR));
         assertThat(alert.getStatus(), equalTo(Alert.Status.DOWN));
+        assertThat(alert.isMaintenance(), equalTo(false));
         assertThat(alert.getAlertTags(), equalTo(List.of("CategoryA", "CategoryB").toString()));
         assertThat(alert.getSource(), equalTo("Asia"));
         assertThat(alert.getResource(), equalTo("AssetRecordDescription"));
         assertThat(alert.getType(), equalTo("opennms network alarm"));
+        assertThat(alert.getParentalNodeLabel(), equalTo("parentNodeLabel"));
         assertThat(alert.getTime(), equalTo(now));
 
 

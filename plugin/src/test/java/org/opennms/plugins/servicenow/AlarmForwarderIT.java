@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import org.junit.Rule;
 import org.junit.Test;
+import org.opennms.integration.api.v1.model.Node;
 import org.opennms.plugins.servicenow.client.ApiClientProvider;
 import org.opennms.plugins.servicenow.client.ApiClientProviderImpl;
 import org.opennms.plugins.servicenow.connection.Connection;
@@ -37,11 +38,11 @@ public class AlarmForwarderIT {
         ObjectMapper mapper = new ObjectMapper();
         // Wire it up
         ConnectionManager connectionManager = mock(ConnectionManager.class);
+        EdgeService service = mock(EdgeService.class);
         ApiClientProvider apiClientProvider = new ApiClientProviderImpl();
-        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager,apiClientProvider, "CategoryA");
+        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager,apiClientProvider, "CategoryA", service);
 
         when(connectionManager.getConnection()).thenReturn(Optional.of(new ConnectionTest()));
-
         TokenResponse response = new TokenResponse();
         response.setAccessToken("accessToken");
         response.setExpires_in(3600);

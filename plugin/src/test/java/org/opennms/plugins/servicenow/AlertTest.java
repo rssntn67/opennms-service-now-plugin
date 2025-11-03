@@ -32,6 +32,7 @@ public class AlertTest {
         alert.setAsset("100");
         alert.setAlertTags("AlertTags");
         alert.setStatus(Alert.Status.DOWN);
+        alert.setParentalNodeLabel("parentalNodeLabel");
         return alert;
     }
 
@@ -62,7 +63,8 @@ public class AlertTest {
                 "  \"node\": \"Node\",\n" +
                 "  \"cmdb_ci\": \"100\",\n" +
                 "  \"alert_tags\": \"AlertTags\",\n" +
-                "  \"status\": \"0\"\n" +
+                "  \"status\": \"0\",\n" +
+                "  \"u_parental_node_opennms\": \"parentalNodeLabel\"\n" +
                 "}";
         JSONAssert.assertEquals(expectedJson, mapper.writeValueAsString(alert), false);
     }
