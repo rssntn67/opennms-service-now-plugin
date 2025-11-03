@@ -25,7 +25,7 @@
                         </goals>
                         <configuration>
                             <featuresFile>mvn:org.opennms.plugins.servicenow/karaf-features/${project.version}/xml</featuresFile>
-                            <finalName>opennms-opennms-service-now-plugin</finalName>
+                            <finalName>opennms-opennms-service-now-plugin-${project.version}</finalName>
                             <ignoreDependencyFlag>true</ignoreDependencyFlag>
                             <archive>
                               <manifestEntries>
