@@ -45,10 +45,8 @@
         <argument ref="nodeDao"/>
         <argument value="${service.initial.delay}"/>
         <argument value="${service.delay}"/>
-        <argument value="${filter}"/>
         <argument value="${metadata.context}"/>
         <argument value="${metadata.parent.key}"/>
-        <argument value="${metadata.gateway.key}"/>
     </bean>
     <service interface="org.opennms.plugins.servicenow.EdgeService" ref="edgeService"/>
 
