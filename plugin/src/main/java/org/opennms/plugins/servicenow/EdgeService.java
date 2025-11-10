@@ -13,67 +13,53 @@ import org.opennms.integration.api.v1.model.NodeCriteria;
 import org.opennms.integration.api.v1.model.TopologyEdge;
 import org.opennms.integration.api.v1.model.TopologyPort;
 import org.opennms.integration.api.v1.model.TopologyProtocol;
-import org.opennms.integration.api.v1.model.TopologySegment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.AbstractMap;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class EdgeService implements Runnable, HealthCheck {
 
-    private class EdgeServiceVisitor implements TopologyEdge.EndpointVisitor {
-        String parent;
-        String child;
-
-        @Override
-        public void visitSource(Node node) {
-            LOG.info("EdgeServiceVisitor:visitSource:Node {}", node);
-            parent = node.getLabel();
-        }
+    private static class EdgeServiceVisitor implements TopologyEdge.EndpointVisitor {
+        NodeCriteria parent;
+        NodeCriteria child;
 
         @Override
         public void visitSource(TopologyPort port) {
             LOG.info("EdgeServiceVisitor:visitSource:TopologyPort {}", port);
-            NodeCriteria nodeCriteria = port.getNodeCriteria();
-            Node node = nodeDao.getNodeByForeignSourceAndForeignId(nodeCriteria.getForeignSource(),nodeCriteria.getForeignId());
-            parent = node.getLabel();
-        }
-
-        @Override
-        public void visitTarget(Node node) {
-            LOG.info("EdgeServiceVisitor:visitTarget:Node {}", node);
-            child = node.getLabel();
+            parent = port.getNodeCriteria();
         }
 
 
         @Override
         public void visitTarget(TopologyPort port) {
             LOG.info("EdgeServiceVisitor:visitTarget:TopologyPort {}", port);
-            NodeCriteria nodeCriteria = port.getNodeCriteria();
-            Node node = nodeDao.getNodeByForeignSourceAndForeignId(nodeCriteria.getForeignSource(),nodeCriteria.getForeignId());
-            child = node.getLabel();
-        }
-
-        @Override
-        public void visitTarget(TopologySegment segment) {
-            LOG.info("EdgeServiceVisitor:visitTarget:TopologySegment {}", segment);
+            child = port.getNodeCriteria();
         }
 
         public void clean() {
             parent=null;
             child=null;
         }
-        public String getParent() {
+        public NodeCriteria getParent() {
             return parent;
         }
 
-        public String getChild() {
+        public NodeCriteria getChild() {
             return child;
         }
 
@@ -84,22 +70,30 @@ public class EdgeService implements Runnable, HealthCheck {
     private final EdgeDao edgeDao;
     private final String context;
     private final String parentKey;
+    private final String gatewayKey;
+    private final String excludedForeignSource;
 
     private final ScheduledFuture<?> scheduledFuture;
 
     private final Map<String, String> parentMap = new HashMap<>();
 
+    private final Integer maxIteration;
     public EdgeService(EdgeDao edgeDao,
                        NodeDao nodeDao,
                        String initialDelay,
                        String delay,
+                       String maxIteration,
                        String context,
-                       String parentKey) {
+                       String parentKey,
+                       String gatewayKey,
+                       String excludedForeignSource) {
         this.edgeDao = Objects.requireNonNull(edgeDao);
         this.nodeDao = Objects.requireNonNull(nodeDao);
         this.context = Objects.requireNonNull(context);
         this.parentKey = Objects.requireNonNull(parentKey);
-
+        this.gatewayKey = Objects.requireNonNull(gatewayKey);
+        this.maxIteration = Objects.requireNonNull(Integer.valueOf(maxIteration));
+        this.excludedForeignSource = Objects.requireNonNull(excludedForeignSource);
         ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         scheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(this, Long.parseLong(initialDelay),
                 Long.parseLong(delay), TimeUnit.MILLISECONDS);
@@ -110,7 +104,7 @@ public class EdgeService implements Runnable, HealthCheck {
         return getParentalNodeLabel(nodeDao.getNodeById(nodeid));
     }
 
-    public String getParentalNodeLabel(Node node) {
+    public synchronized String getParentalNodeLabel(Node node) {
         for (MetaData m : node.getMetaData()) {
             if (m.getContext().equals(context) && m.getKey().equals(parentKey)) {
                 return m.getValue();
@@ -123,18 +117,96 @@ public class EdgeService implements Runnable, HealthCheck {
 
     @Override
     public void run() {
-        parentMap.clear();
+        final List<Node> nodes = nodeDao.getNodes();
+        final Map<String, InetAddress> nodeToGatewayIp = nodes.stream()
+                .flatMap(node -> node.getMetaData().stream()
+                        .filter(m -> m.getContext().equals(context) && m.getKey().equals(gatewayKey))
+                        .map(m -> {
+                            try {
+                                InetAddress gateway = InetAddress.getByName(m.getValue());
+                                return new AbstractMap.SimpleEntry<>( node.getLabel(),gateway);
+                            } catch (UnknownHostException e) {
+                                return null;
+                            }
+                        }).filter(Objects::nonNull))
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey, Map.Entry::getValue)
+                );
+
+        final Map<InetAddress, String> gatewayIpToNode = nodes.stream()
+                .filter(n -> !n.getForeignSource().equals(excludedForeignSource))
+                .flatMap(node ->
+                        node.getIpInterfaces().stream()
+                                .map(ipInterface -> new AbstractMap.SimpleEntry<>(ipInterface.getIpAddress(), node.getLabel()))
+                                .filter(entry -> nodeToGatewayIp.containsValue(entry.getKey()))
+                )
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (existing, replacement) -> existing
+                ));
+
         final EdgeServiceVisitor visitor = new EdgeServiceVisitor();
-        edgeDao.getEdges()
+        final Map<String, Set<String>> links = edgeDao.getEdges()
                 .stream()
                 .filter(e -> e.getProtocol() == TopologyProtocol.LLDP)
-                .forEach( edge -> {
-                    edge.visitEndpoints(visitor);
-                    if (visitor.getChild() != null) {
-                        parentMap.put(visitor.getChild(), visitor.getParent());
+                .collect(HashMap::new,
+                        (map, edge) -> {
+                            edge.visitEndpoints(visitor);
+                            String parent = getNodeLabel(visitor.getParent(), nodes);
+                            String child = getNodeLabel(visitor.getChild(), nodes);
+
+                            if (parent != null && child != null) {
+                                map.computeIfAbsent(parent, k -> new HashSet<>()).add(child);
+                                map.computeIfAbsent(child, k -> new HashSet<>()).add(parent);
+                            }
+                            visitor.clean();
+                        },
+                        Map::putAll
+                );
+        parentMap.clear();
+        //How to find the topology:
+
+        for (String child: nodeToGatewayIp.keySet()) {
+            String gateway = gatewayIpToNode.get(nodeToGatewayIp.get(child));
+            Set<String> parents = links.get(gateway);
+            if (parents.contains(child)) {
+                parentMap.put(child,gateway);
+                break;
+            }
+            int i=0;
+            while (!parents.isEmpty() || i< maxIteration) {
+                parents = checkParent(links,gateway, child, parents, nodeToGatewayIp,gatewayIpToNode);
+                i++;
+            }
+        }
+
+    }
+    private Set<String> checkParent(Map<String,Set<String>>links , String gateway, String child, Set<String> parents, Map<String,InetAddress> nodeGateway, Map<InetAddress, String> ipGateway) {
+        final Set<String> levels = new HashSet<>();
+        parents.stream()
+                .filter(nodeGateway::containsKey)
+                .filter(level -> ipGateway.get(nodeGateway.get(level)).equals(gateway))
+                .forEach(level -> {
+                    levels.add(level);
+                    if (links.get(level).contains(child)) {
+                        parentMap.put(child, level);
                     }
-                    visitor.clean();
                 });
+        if (parentMap.containsKey(child)) {
+            return Collections.emptySet();
+        }
+        return levels;
+    }
+
+    private static String getNodeLabel(NodeCriteria criteria, List<Node> nodes) {
+        for (Node node: nodes) {
+            if (node.getForeignSource().equals(criteria.getForeignSource()) &&
+                    node.getForeignId().equals(criteria.getForeignId())) {
+                return node.getLabel();
+            }
+        }
+        return null;
     }
 
     @Override
