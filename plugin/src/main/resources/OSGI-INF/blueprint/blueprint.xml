@@ -50,6 +50,7 @@
         <argument value="${service.iteration}"/>
         <argument value="${metadata.context}"/>
         <argument value="${metadata.parent.key}"/>
+        <argument value="${metadata.gateway.key}"/>
         <argument value="${service.excluded.fs}"/>
     </bean>
     <service interface="org.opennms.plugins.servicenow.EdgeService" ref="edgeService"/>
