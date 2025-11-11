@@ -19,7 +19,6 @@ import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -130,7 +129,21 @@ public class EdgeService implements Runnable, HealthCheck {
         final List<Node> nodes = nodeDao.getNodes();
         final Set<TopologyEdge> edges = edgeDao.getEdges();
         final EdgeServiceVisitor visitor = new EdgeServiceVisitor();
+        parentMap.clear();
+        runOverLldpProtocol(nodes, edges, visitor);
+        runOverBridgeProtocol(edges, visitor);
+    }
 
+    private void runOverBridgeProtocol(Set<TopologyEdge> edges, EdgeServiceVisitor visitor) {
+        edges.stream()
+            .filter(e -> e.getProtocol() == TopologyProtocol.BRIDGE)
+            .forEach(e -> {
+                    visitor.clean();
+                    e.visitEndpoints(visitor);
+            });
+    }
+
+    private void runOverLldpProtocol(final List<Node> nodes, final Set<TopologyEdge> edges, final EdgeServiceVisitor visitor) {
         Map<String, String> nodeGatewayMap = new HashMap<>();
 
         for (Node node : nodes) {
@@ -159,7 +172,6 @@ public class EdgeService implements Runnable, HealthCheck {
                 LOG.warn("run: cannot parse gateway ip; {}", gatewayIp, e);
             }
         }
-
         LOG.info("run: node to gateway map: {}", nodeGatewayMap);
         final Map<String, Set<String>> edgeMap = edges
                 .stream()
@@ -184,7 +196,6 @@ public class EdgeService implements Runnable, HealthCheck {
     }
 
     public void runParentDiscovery(Map<String,Set<String>>edgeMap, Map<String,String> nodeGatewayMap) {
-        parentMap.clear();
         LOG.debug("runParentDiscovery: edgeMap: {}", edgeMap);
         LOG.debug("runParentDiscovery: nodeGatewayMap: {}", nodeGatewayMap);
 
