@@ -39,7 +39,7 @@ public class EdgeService implements Runnable, HealthCheck {
 
         @Override
         public void visitSource(TopologyPort port) {
-            LOG.info("EdgeServiceVisitor:visitSource:TopologyPort {}", port);
+            LOG.debug("EdgeServiceVisitor:visitSource:TopologyPort {}", port);
             NodeCriteria nodeCriteria = port.getNodeCriteria();
             Node node = nodeDao.getNodeByForeignSourceAndForeignId(nodeCriteria.getForeignSource(),nodeCriteria.getForeignId());
             parent = node.getLabel();
@@ -47,14 +47,14 @@ public class EdgeService implements Runnable, HealthCheck {
 
         @Override
         public void visitTarget(Node node) {
-            LOG.info("EdgeServiceVisitor:visitTarget:Node {}", node);
+            LOG.debug("EdgeServiceVisitor:visitTarget:Node {}", node);
             child = node.getLabel();
         }
 
 
         @Override
         public void visitTarget(TopologyPort port) {
-            LOG.info("EdgeServiceVisitor:visitTarget:TopologyPort {}", port);
+            LOG.debug("EdgeServiceVisitor:visitTarget:TopologyPort {}", port);
             NodeCriteria nodeCriteria = port.getNodeCriteria();
             Node node = nodeDao.getNodeByForeignSourceAndForeignId(nodeCriteria.getForeignSource(),nodeCriteria.getForeignId());
             child = node.getLabel();
@@ -62,7 +62,7 @@ public class EdgeService implements Runnable, HealthCheck {
 
         @Override
         public void visitTarget(TopologySegment segment) {
-            LOG.info("EdgeServiceVisitor:visitTarget:TopologySegment {}", segment);
+            LOG.debug("EdgeServiceVisitor:visitTarget:TopologySegment {}", segment);
         }
 
         public void clean() {
@@ -125,9 +125,7 @@ public class EdgeService implements Runnable, HealthCheck {
     public void run() {
         parentMap.clear();
         final EdgeServiceVisitor visitor = new EdgeServiceVisitor();
-        edgeDao.getEdges()
-                .stream()
-                .filter(e -> e.getProtocol() == TopologyProtocol.LLDP)
+        edgeDao.getEdges(TopologyProtocol.LLDP)
                 .forEach( edge -> {
                     edge.visitEndpoints(visitor);
                     if (visitor.getChild() != null) {
