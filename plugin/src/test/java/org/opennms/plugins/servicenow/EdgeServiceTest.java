@@ -2,6 +2,8 @@ package org.opennms.plugins.servicenow;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.opennms.integration.api.v1.dao.EdgeDao;
+import org.opennms.integration.api.v1.dao.NodeDao;
 import org.opennms.integration.api.v1.model.Node;
 import org.opennms.integration.api.v1.model.TopologyEdge;
 import org.opennms.integration.api.v1.model.TopologyProtocol;
@@ -22,8 +24,37 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class EdgeServiceTest {
+    private final static int startId = 11;
+    private final static int endId = 20;
+
+    private static EdgeService getEdgeServiceMock() throws UnknownHostException {
+        NodeDao nodeDao = mock(NodeDao.class);
+        when(nodeDao.getNodeByForeignSourceAndForeignId("EdgeServiceTest", "gateway")).thenReturn(getGateway());
+        when(nodeDao.getNodeByForeignSourceAndForeignId("EdgeServiceTest", "switch")).thenReturn(getSwitch());
+        when(nodeDao.getNodeByForeignSourceAndForeignId("EdgeServiceTest", "switch")).thenReturn(getSwitch());
+        for (int i = startId; i < endId; i++) {
+            when(nodeDao.getNodeByForeignSourceAndForeignId("EdgeServiceTest", "node"+i)).thenReturn(getNode(i));
+        }
+        EdgeDao edgeDao = mock(EdgeDao.class);
+        EdgeService service = new EdgeService(
+                edgeDao,
+                nodeDao,
+                "1000000",
+                "3600000",
+                "10",
+                "provision",
+                "parent",
+                "gateway",
+                "NODES"
+        );
+        service.init();
+        service.destroy();
+        return service;
+    }
 
     private static TopologyEdge getEdge(Node parent, Node child) {
         return ImmutableTopologyEdge.newBuilder()
@@ -149,7 +180,7 @@ public class EdgeServiceTest {
 
     private static List<Node> getNodes() throws UnknownHostException {
         List<Node> nodes = new ArrayList<>();
-        for (int i = 11; i < 20; i++) {
+        for (int i = startId; i < endId; i++) {
             nodes.add(getNode(i));
         }
         nodes.add(getGateway());
@@ -163,9 +194,10 @@ public class EdgeServiceTest {
      * Verifies that the object is serialized to JSON as expected.
      */
     @Test
-    public void findParentTest() {
+    public void findParentTest() throws UnknownHostException {
+        EdgeService edgeService = getEdgeServiceMock();
         Map<String, String> parentMap =
-                EdgeService.runParentDiscovery(getEdgeMap(), getGatewayMap(), 5);
+                edgeService.runParentDiscovery(getEdgeMap(), getGatewayMap());
 
         System.out.println(parentMap);
         Assert.assertEquals(9, parentMap.size());
@@ -184,9 +216,10 @@ public class EdgeServiceTest {
     @Test
     public void testGetNodeGatewayMapTest() throws UnknownHostException {
 
+        EdgeService edgeService = getEdgeServiceMock();
         List<Node> nodes = getNodes();
         Assert.assertEquals(11, nodes.size());
-        Map<String, String> nodeGatewayMap = EdgeService.getNodeGatewayMap(nodes, "provision", "gateway", "EXCLUDED");
+        Map<String, String> nodeGatewayMap = edgeService.getNodeGatewayMap(nodes);
         System.out.println(nodeGatewayMap);
         Assert.assertEquals(10, nodeGatewayMap.size());
         Assert.assertFalse(nodeGatewayMap.containsKey("gateway"));
@@ -196,13 +229,14 @@ public class EdgeServiceTest {
 
     @Test
     public void testGetEdgeMap() throws UnknownHostException {
+        EdgeService edgeService = getEdgeServiceMock();
         final List<Node> nodes = getNodes();
         Assert.assertEquals(11, nodes.size());
         Node sw = getSwitch();
         final Set<TopologyEdge> edges = getEdges(getSwitch(), nodes.stream().filter(node -> !node.getLabel().equals(sw.getLabel())).toList());
         Assert.assertEquals(11, nodes.size());
         Assert.assertEquals(10, edges.size());
-        final Map<String, Set<String>> edgeMap = EdgeService.getEdgeMap(nodes,edges);
+        final Map<String, Set<String>> edgeMap = edgeService.getEdgeMap(edges);
         Assert.assertEquals(11, edgeMap.size());
         System.out.println(edgeMap);
         final Set<String> children = edgeMap.get(sw.getLabel());
@@ -217,7 +251,7 @@ public class EdgeServiceTest {
                 });
 
         
-        final Map<String, Set<String>> map = EdgeService.getEdgeMap(nodes, Collections.emptySet());
+        final Map<String, Set<String>> map = edgeService.getEdgeMap(Collections.emptySet());
         System.out.println(map);
         Assert.assertEquals(0, map.size());
     }
