@@ -18,12 +18,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class EdgeService implements Runnable, HealthCheck {
 
@@ -33,8 +36,8 @@ public class EdgeService implements Runnable, HealthCheck {
 
         @Override
         public void visitSource(Node node) {
-            LOG.info("EdgeServiceVisitor:visitSource:Node {}", node);
-            parent = node.getLabel();
+            LOG.debug("EdgeServiceVisitor:visitSource:Node {}", node);
+            parent = nodeDao.getNodeByForeignSourceAndForeignId(node.getForeignSource(), node.getForeignId()).getLabel();
         }
 
         @Override
@@ -48,7 +51,8 @@ public class EdgeService implements Runnable, HealthCheck {
         @Override
         public void visitTarget(Node node) {
             LOG.debug("EdgeServiceVisitor:visitTarget:Node {}", node);
-            child = node.getLabel();
+            parent = nodeDao.getNodeByForeignSourceAndForeignId(node.getForeignSource(), node.getForeignId()).getLabel();
+
         }
 
 
@@ -123,6 +127,12 @@ public class EdgeService implements Runnable, HealthCheck {
 
     @Override
     public void run() {
+        Set<String> gateway = new HashSet<>();
+        nodeDao.getNodes().forEach( n -> {
+            n.getMetaData().stream().filter(m -> m.getContext().equals(context) && m.getKey() == "gateway")
+                    .forEach(m -> gateway.add(m.getValue()));
+        });
+        LOG.info("run: gateway: {}", gateway);
         parentMap.clear();
         final EdgeServiceVisitor visitor = new EdgeServiceVisitor();
         edgeDao.getEdges(TopologyProtocol.LLDP)
@@ -133,6 +143,7 @@ public class EdgeService implements Runnable, HealthCheck {
                     }
                     visitor.clean();
                 });
+        LOG.info("run: parentMap size: {}", parentMap.size());
     }
 
     @Override
