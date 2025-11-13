@@ -6,21 +6,21 @@
                 http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd">
 
     <!-- Configuration stored in $OPENNMS_HOME/etc/org.opennms.plugins.servicenow.cfg file -->
-    <cm:property-placeholder id="opennms-service-nowPluginProperties" persistent-id="org.opennms.plugins.servicenow" update-strategy="reload">
+        <cm:property-placeholder id="opennms-service-nowPluginProperties" persistent-id="org.opennms.plugins.servicenow" update-strategy="reload">
         <cm:default-properties>
             <cm:property name="filter" value="MinnovoTest" />
             <cm:property name="service.initial.delay" value="5000" />
             <cm:property name="service.delay" value="3600000" />
             <cm:property name="service.iteration" value="20" />
             <cm:property name="service.excluded.fs" value="NODO" />
-            <cm:property name="metadata.context" value="provision" />
+            <cm:property name="metadata.context" value="requisition" />
             <cm:property name="metadata.parent.key" value="parent" />
             <cm:property name="metadata.gateway.key" value="gateway" />
         </cm:default-properties>
     </cm:property-placeholder>
     <!-- Pull in service implementations from the OSGi registry -->
-    <reference id="edgeDao" interface="org.opennms.integration.api.v1.dao.EdgeDao" availability="optional"/>
     <reference id="nodeDao" interface="org.opennms.integration.api.v1.dao.NodeDao" availability="optional"/>
+    <reference id="edgeDao" interface="org.opennms.integration.api.v1.dao.EdgeDao" availability="optional"/>
 
     <!-- Build our API client -->
     <bean id="apiClientProvider" class="org.opennms.plugins.servicenow.client.ApiClientProviderImpl">
@@ -42,7 +42,7 @@
     </bean>
     <service ref="connectionManager" interface="org.opennms.plugins.servicenow.connection.ConnectionManager"/>
 
-    <bean id="edgeService" class="org.opennms.plugins.servicenow.EdgeService" destroy-method="destroy">
+    <bean id="edgeService" class="org.opennms.plugins.servicenow.EdgeService" init-method="init" destroy-method="destroy">
         <argument ref="edgeDao"/>
         <argument ref="nodeDao"/>
         <argument value="${service.initial.delay}"/>

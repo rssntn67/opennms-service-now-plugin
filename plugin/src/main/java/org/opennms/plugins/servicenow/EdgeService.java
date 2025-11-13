@@ -9,7 +9,6 @@ import org.opennms.integration.api.v1.health.Status;
 import org.opennms.integration.api.v1.health.immutables.ImmutableResponse;
 import org.opennms.integration.api.v1.model.MetaData;
 import org.opennms.integration.api.v1.model.Node;
-import org.opennms.integration.api.v1.model.NodeCriteria;
 import org.opennms.integration.api.v1.model.TopologyEdge;
 import org.opennms.integration.api.v1.model.TopologyPort;
 import org.opennms.integration.api.v1.model.TopologyProtocol;
@@ -17,8 +16,6 @@ import org.opennms.integration.api.v1.model.TopologySegment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -33,40 +30,54 @@ import java.util.concurrent.TimeUnit;
 
 public class EdgeService implements Runnable, HealthCheck {
 
-    private static class EdgeServiceVisitor implements TopologyEdge.EndpointVisitor {
-        NodeCriteria parent;
-        NodeCriteria child;
+    protected static class EdgeServiceVisitor implements TopologyEdge.EndpointVisitor {
+        TopologyPort parent;
+        TopologyPort child;
+        TopologySegment segment;
+        TopologyEdge.EndpointType targetType;
 
         @Override
         public void visitSource(TopologyPort port) {
             LOG.debug("EdgeServiceVisitor:visitSource:TopologyPort {}", port);
-            parent = port.getNodeCriteria();
+            parent = port;
         }
 
 
         @Override
         public void visitTarget(TopologyPort port) {
             LOG.debug("EdgeServiceVisitor:visitTarget:TopologyPort {}", port);
-            child = port.getNodeCriteria();
+            child = port;
+            targetType = TopologyEdge.EndpointType.PORT;
         }
 
         @Override
         public void visitTarget(TopologySegment segment) {
             LOG.info("EdgeServiceVisitor:visitTarget:TopologySegment {}", segment);
+            this.segment = segment;
+            targetType = TopologyEdge.EndpointType.SEGMENT;
         }
 
         public void clean() {
             parent=null;
             child=null;
+            segment=null;
         }
-        public NodeCriteria getParent() {
+
+        public TopologyPort parent() {
             return parent;
         }
 
-        public NodeCriteria getChild() {
+        public TopologyPort child() {
             return child;
         }
 
+        public TopologySegment segment() {
+            return segment;
+        }
+
+        public TopologyEdge.EndpointType targetType() {
+            return targetType;
+        }
     }
 
     private static final Logger LOG = LoggerFactory.getLogger(EdgeService.class);
@@ -76,25 +87,49 @@ public class EdgeService implements Runnable, HealthCheck {
     private final String parentKey;
     private final String gatewayKey;
     private final String excludedForeignSource;
+    private final long initialDelayL;
+    private final long delayL;
 
-    private final ScheduledFuture<?> scheduledFuture;
+    private ScheduledFuture<?> scheduledFuture;
 
-    public Map<String, String> getParentMap() {
-        return new HashMap<>(parentMap);
-    }
+    private volatile Map<String, String> parentMap;
 
-    private final Map<String, String> parentMap = new ConcurrentHashMap<>();
 
     private final Integer maxIteration;
-    public EdgeService(EdgeDao edgeDao,
-                       NodeDao nodeDao,
-                       String initialDelay,
-                       String delay,
-                       String maxIteration,
-                       String context,
-                       String parentKey,
-                       String gatewayKey,
-                       String excludedForeignSource) {
+
+    public void init() {
+        parentMap = new ConcurrentHashMap<>();
+        LOG.info("EdgeService init: parentMap initialized: {}", this.parentMap != null);
+        LOG.info("EdgeService init: parentMap size: {}", this.parentMap.size());
+        LOG.info("EdgeService init: parentMap class: {}", this.parentMap.getClass().getName());
+        LOG.info("EdgeService init: this reference: {}", this);
+        initScheduler();
+    }
+
+    private void initScheduler() {
+        ScheduledExecutorService scheduledExecutorService =
+                Executors.newSingleThreadScheduledExecutor();
+        scheduledFuture =
+                scheduledExecutorService
+                        .scheduleWithFixedDelay(
+                        this,
+                                initialDelayL,
+                                delayL,
+                                TimeUnit.MILLISECONDS
+                        );
+        LOG.info("EdgeService init: Scheduler initialized, parentMap: {}", this.parentMap.size());
+    }
+
+    public EdgeService(final EdgeDao edgeDao,
+                       final NodeDao nodeDao,
+                       final String initialDelay,
+                       final String delay,
+                       final String maxIteration,
+                       final String context,
+                       final String parentKey,
+                       final String gatewayKey,
+                       final String excludedForeignSource) {
+
         this.edgeDao = Objects.requireNonNull(edgeDao);
         this.nodeDao = Objects.requireNonNull(nodeDao);
         this.context = Objects.requireNonNull(context);
@@ -102,10 +137,8 @@ public class EdgeService implements Runnable, HealthCheck {
         this.gatewayKey = Objects.requireNonNull(gatewayKey);
         this.maxIteration = Objects.requireNonNull(Integer.valueOf(maxIteration));
         this.excludedForeignSource = Objects.requireNonNull(excludedForeignSource);
-        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-        scheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(this, Long.parseLong(initialDelay),
-                Long.parseLong(delay), TimeUnit.MILLISECONDS);
-
+        this.initialDelayL =  Long.parseLong(Objects.requireNonNull(initialDelay));
+        this.delayL =  Long.parseLong(Objects.requireNonNull(delay));
     }
 
     public String getParentalNodeLabelById(int nodeid) {
@@ -114,106 +147,164 @@ public class EdgeService implements Runnable, HealthCheck {
 
     public String getParentalNodeLabel(Node node) {
         for (MetaData m : node.getMetaData()) {
-            if (m.getContext().equals(context) && m.getKey().equals(parentKey)) {
+            if (m.getContext().equals(context) && m.getKey().equals(this.parentKey)) {
                 return m.getValue();
             }
         }
-        if (parentMap.containsKey(node.getLabel()))
-            return parentMap.get(node.getLabel());
+        if (this.parentMap.containsKey(node.getLabel()))
+            return this.parentMap.get(node.getLabel());
         return "NoParentNodeFound";
     }
 
 
     @Override
     public void run() {
+
         final List<Node> nodes = nodeDao.getNodes();
-        final Set<TopologyEdge> edges = edgeDao.getEdges();
-        final EdgeServiceVisitor visitor = new EdgeServiceVisitor();
-        parentMap.clear();
-        runOverLldpProtocol(nodes, edges, visitor);
-        runOverBridgeProtocol(edges, visitor);
+        LOG.info("run: node size: {}", nodes.size());
+        Map<String, String> nodeGatewayMap =
+                getNodeGatewayMap(nodes, this.context, this.gatewayKey, this.excludedForeignSource);
+        LOG.info("run: node to gateway map size: {}", nodeGatewayMap.size());
+
+        Map<String, String> map =
+                runParentDiscovery(
+                        getEdgeMap(nodes, edgeDao.getEdges(TopologyProtocol.LLDP)),
+                        nodeGatewayMap,
+                        this.maxIteration
+                );
+        LOG.info("run: lldp parent map size: {}", map.size());
+        this.parentMap.clear();
+        this.parentMap.putAll(map);
+//        final Map<String, Set<String>> bridgeEdgeMap = getEdgeMap(nodes, edges, TopologyProtocol.BRIDGE);
+//        LOG.info("run: {} bridge map size: {}", TopologyProtocol.BRIDGE, bridgeEdgeMap.size());
+        //runParentDiscovery(bridgeEdgeMap, nodeGatewayMap);
+
+        LOG.info("run: parentMap: {}", this.parentMap.size());
     }
 
-    private void runOverBridgeProtocol(Set<TopologyEdge> edges, EdgeServiceVisitor visitor) {
-        edges.stream()
-            .filter(e -> e.getProtocol() == TopologyProtocol.BRIDGE)
-            .forEach(e -> {
-                    visitor.clean();
-                    e.visitEndpoints(visitor);
-            });
-    }
 
-    private void runOverLldpProtocol(final List<Node> nodes, final Set<TopologyEdge> edges, final EdgeServiceVisitor visitor) {
-        Map<String, String> nodeGatewayMap = new HashMap<>();
-
+    protected static Map<String,String> getNodeGatewayMap(
+            final List<Node> nodes,
+            String context,
+            String gatewayKey,
+            String excludedForeignSource) {
+        final Map<String,String> mappingNodeLabelToGateway= new HashMap<>();
         for (Node node : nodes) {
-            // Get gateway IP for this node
             String gatewayIp = node.getMetaData().stream()
                     .filter(m -> m.getContext().equals(context) && m.getKey().equals(gatewayKey))
                     .map(MetaData::getValue)
                     .findFirst()
                     .orElse(null);
-
-            if (gatewayIp == null || nodeGatewayMap.containsValue(gatewayIp)) {
+            if (gatewayIp == null) {
                 continue;
             }
-            try {
-                InetAddress gatewayAddress = InetAddress.getByName(gatewayIp);
+            mappingNodeLabelToGateway.put(node.getLabel(), gatewayIp);
+        }
+        Map<String,String> mappingGatewayIpToGatewayNodeLabel = new HashMap<>();
+        nodes.stream()
+            .filter(n -> !n.getForeignSource().equals(excludedForeignSource))
+            .forEach(node -> {
 
-                // Find the node that has this gateway IP
-                nodes.stream()
-                        .filter(n -> !n.getForeignSource().equals(excludedForeignSource))
-                        .filter(n -> n.getIpInterfaces().stream()
-                                .anyMatch(ipInterface -> ipInterface.getIpAddress().equals(gatewayAddress)))
-                        .map(Node::getLabel)
-                        .findFirst().ifPresent(gatewayNodeLabel -> nodeGatewayMap.put(node.getLabel(), gatewayNodeLabel));
+                String gatewayIp = node.getIpInterfaces().stream()
+                        .filter(ipInterface -> mappingNodeLabelToGateway.containsValue(ipInterface.getIpAddress().getHostName()))
+                        .map(ipInterface -> ipInterface.getIpAddress().getHostName())
+                        .findFirst().orElse(null)
+                        ;
+                if (gatewayIp == null || mappingGatewayIpToGatewayNodeLabel.containsKey(gatewayIp)) {
+                    return;
+                }
+                mappingGatewayIpToGatewayNodeLabel.put(gatewayIp, node.getLabel());
+            });
 
-            } catch (UnknownHostException e) {
-                LOG.warn("run: cannot parse gateway ip; {}", gatewayIp, e);
+        final Map<String, String> nodeGatewayMap = new HashMap<>();
+        for (Map.Entry<String,String> entry: mappingNodeLabelToGateway.entrySet()) {
+            if (mappingGatewayIpToGatewayNodeLabel.containsKey(entry.getValue())) {
+                nodeGatewayMap.put(entry.getKey(), mappingGatewayIpToGatewayNodeLabel.get(entry.getValue()));
             }
         }
-        LOG.info("run: node to gateway map: {}", nodeGatewayMap);
-        final Map<String, Set<String>> edgeMap = edges
-                .stream()
-                .filter(e -> e.getProtocol() == TopologyProtocol.LLDP)
-                .collect(HashMap::new,
-                        (map, edge) -> {
-                            edge.visitEndpoints(visitor);
-                            String parent = getNodeLabel(visitor.getParent(), nodes);
-                            String child = getNodeLabel(visitor.getChild(), nodes);
 
-                            if (parent != null && child != null) {
-                                map.computeIfAbsent(parent, k -> new HashSet<>()).add(child);
-                                map.computeIfAbsent(child, k -> new HashSet<>()).add(parent);
-                            }
-                            visitor.clean();
-                        },
-                        Map::putAll
-                );
-        LOG.info("run: edgeMap: {}", edgeMap);
-
-        runParentDiscovery(edgeMap, nodeGatewayMap);
+        return nodeGatewayMap;
     }
 
-    public void runParentDiscovery(Map<String,Set<String>>edgeMap, Map<String,String> nodeGatewayMap) {
-        LOG.debug("runParentDiscovery: edgeMap: {}", edgeMap);
-        LOG.debug("runParentDiscovery: nodeGatewayMap: {}", nodeGatewayMap);
+    protected static Map<String, Set<String>> getEdgeMap(final List<Node> nodes, final Set<TopologyEdge> edges) {
+        EdgeService.EdgeServiceVisitor visitor = new EdgeServiceVisitor();
+        final Map<String, Set<String>> map = new HashMap<>();
+        for (TopologyEdge edge: edges) {
+            visitor.clean();
+            edge.visitEndpoints(visitor);
+            if (visitor.targetType() != TopologyEdge.EndpointType.PORT) {
+                LOG.info("getEdgeMap: segment not supported");
+                continue;
+            }
+
+            TopologyPort parent= visitor.parent();
+            TopologyPort child= visitor.child();
+            if (child == null || parent == null) {
+                LOG.warn("getEdgeMap: parent or child is null");
+                continue;
+            }
+            String parentNodeLabel=null;
+            String childNodeLabel=null;
+            for (Node n : nodes) {
+                if (n.getForeignSource().equals(parent.getNodeCriteria().getForeignSource())
+                && n.getForeignId().equals(parent.getNodeCriteria().getForeignId())) {
+                    parentNodeLabel = n.getLabel();
+                }
+                if (n.getForeignSource().equals(child.getNodeCriteria().getForeignSource())
+                        && n.getForeignId().equals(child.getNodeCriteria().getForeignId())) {
+                    childNodeLabel = n.getLabel();
+                }
+
+                if (parentNodeLabel != null && childNodeLabel != null) {
+                    map.computeIfAbsent(parentNodeLabel, k -> new HashSet<>()).add(childNodeLabel);
+                    map.computeIfAbsent(childNodeLabel, k -> new HashSet<>()).add(parentNodeLabel);
+                    break;
+                }
+            }
+
+        }
+        return map;
+    }
+
+    protected static Map<String,String> runParentDiscovery(
+            final Map<String,Set<String>>edgeMap,
+            final Map<String,String> nodeGatewayMap,
+            final int maxIteration) {
+        if (edgeMap == null) {
+            LOG.warn("runParentDiscovery: edgeMap is null");
+            return new HashMap<>();
+        }
+        if (edgeMap.isEmpty()) {
+            LOG.warn("runParentDiscovery: edgeMap is empty");
+            return new HashMap<>();
+        }
+
+        if (nodeGatewayMap == null) {
+            LOG.warn("runParentDiscovery: nodeGatewayMap is null");
+            return new HashMap<>();
+        }
+        if (nodeGatewayMap.isEmpty()) {
+            LOG.warn("runParentDiscovery: nodeGatewayMap is empty");
+            return new HashMap<>();
+        }
+
+        Map<String,String> map = new HashMap<>();
 
         for (String child: nodeGatewayMap.keySet()) {
             String gateway = nodeGatewayMap.get(child);
-            LOG.debug("runTopologyDiscovery: parsing {}: with gateway: {}", child, gateway);
+            LOG.debug("runParentDiscovery: parsing {}: with gateway: {}", child, gateway);
             int i=0;
             Set<String> parents = new HashSet<>(List.of(gateway));
-            while (!parentMap.containsKey(child) && i< maxIteration) {
-                LOG.debug("runTopologyDiscovery: iteration {}: checking if children of: {}", i,parents);
-                parents = checkParent(edgeMap,gateway, child, parents, nodeGatewayMap);
+            while (!map.containsKey(child) && i< maxIteration) {
+                LOG.debug("runParentDiscovery: iteration {}: checking if children of: {}", i,parents);
+                parents = checkParent(map, edgeMap,gateway, child, parents, nodeGatewayMap);
                 i++;
             }
         }
-
+        return map;
     }
 
-    private Set<String> checkParent(Map<String,Set<String>>linkMap , String gateway, String child, Set<String> parents, Map<String,String> nodeGatewayMap) {
+    private static Set<String> checkParent(final Map<String, String> map, final Map<String,Set<String>>linkMap , String gateway, String child, Set<String> parents, Map<String,String> nodeGatewayMap) {
         final Set<String> children = new HashSet<>();
         parents.stream()
                 .filter(level -> level.equals(gateway) || gateway.equals(nodeGatewayMap.get(level)))
@@ -221,20 +312,10 @@ public class EdgeService implements Runnable, HealthCheck {
                     children.addAll(linkMap.get(level));
                     if (linkMap.get(level).contains(child)) {
                         LOG.debug("checkParent: child: {}: found parent: {}", child,level);
-                        parentMap.put(child, level);
+                        map.put(child, level);
                     }
                 });
         return children;
-    }
-
-    private static String getNodeLabel(NodeCriteria criteria, List<Node> nodes) {
-        for (Node node: nodes) {
-            if (node.getForeignSource().equals(criteria.getForeignSource()) &&
-                    node.getForeignId().equals(criteria.getForeignId())) {
-                return node.getLabel();
-            }
-        }
-        return null;
     }
 
     @Override
