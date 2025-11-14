@@ -21,6 +21,7 @@
     <!-- Pull in service implementations from the OSGi registry -->
     <reference id="nodeDao" interface="org.opennms.integration.api.v1.dao.NodeDao" availability="optional"/>
     <reference id="edgeDao" interface="org.opennms.integration.api.v1.dao.EdgeDao" availability="optional"/>
+    <reference id="interfaceToNodeCache" interface="org.opennms.integration.api.v1.dao.InterfaceToNodeCache" availability="optional"/>
 
     <!-- Build our API client -->
     <bean id="apiClientProvider" class="org.opennms.plugins.servicenow.client.ApiClientProviderImpl">
@@ -45,6 +46,7 @@
     <bean id="edgeService" class="org.opennms.plugins.servicenow.EdgeService" init-method="init" destroy-method="destroy">
         <argument ref="edgeDao"/>
         <argument ref="nodeDao"/>
+        <argument ref="interfaceToNodeCache"/>
         <argument value="${service.initial.delay}"/>
         <argument value="${service.delay}"/>
         <argument value="${service.iteration}"/>

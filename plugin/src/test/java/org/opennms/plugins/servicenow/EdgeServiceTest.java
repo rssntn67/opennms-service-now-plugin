@@ -3,6 +3,7 @@ package org.opennms.plugins.servicenow;
 import org.junit.Assert;
 import org.junit.Test;
 import org.opennms.integration.api.v1.dao.EdgeDao;
+import org.opennms.integration.api.v1.dao.InterfaceToNodeCache;
 import org.opennms.integration.api.v1.dao.NodeDao;
 import org.opennms.integration.api.v1.model.Node;
 import org.opennms.integration.api.v1.model.TopologyEdge;
@@ -17,13 +18,14 @@ import org.opennms.integration.api.v1.model.immutables.ImmutableTopologyPort;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -33,16 +35,27 @@ public class EdgeServiceTest {
 
     private static EdgeService getEdgeServiceMock() throws UnknownHostException {
         NodeDao nodeDao = mock(NodeDao.class);
+        when(nodeDao.getNodes()).thenReturn(getNodes());
         when(nodeDao.getNodeByForeignSourceAndForeignId("EdgeServiceTest", "gateway")).thenReturn(getGateway());
-        when(nodeDao.getNodeByForeignSourceAndForeignId("EdgeServiceTest", "switch")).thenReturn(getSwitch());
         when(nodeDao.getNodeByForeignSourceAndForeignId("EdgeServiceTest", "switch")).thenReturn(getSwitch());
         for (int i = startId; i < endId; i++) {
             when(nodeDao.getNodeByForeignSourceAndForeignId("EdgeServiceTest", "node"+i)).thenReturn(getNode(i));
         }
+        when(nodeDao.getNodeById(getGateway().getId())).thenReturn(getGateway());
         EdgeDao edgeDao = mock(EdgeDao.class);
+        when(edgeDao.getEdges(TopologyProtocol.LLDP))
+                .thenReturn(getEdges(getSwitch(),getNodes().stream().filter(node -> !node.getLabel().equals("switch")).toList()));
+        when(edgeDao.getEdges(TopologyProtocol.BRIDGE))
+                .thenReturn(new HashSet<>());
+
+        InterfaceToNodeCache cache = mock(InterfaceToNodeCache.class);
+        when(cache.getFirstNodeId("TEST", InetAddress.getByName("10.10.10.254")))
+                .thenReturn(Optional.of(getGateway().getId()));
+
         EdgeService service = new EdgeService(
                 edgeDao,
                 nodeDao,
+                cache,
                 "1000000",
                 "3600000",
                 "10",
@@ -129,6 +142,7 @@ public class EdgeServiceTest {
                 .setLabel("switch")
                 .setForeignId("switch")
                 .setForeignSource("EdgeServiceTest")
+                .setLocation("TEST")
                 .setId(10)
                 .addMetaData(ImmutableMetaData
                         .newBuilder()
@@ -150,6 +164,7 @@ public class EdgeServiceTest {
                 .setLabel("gateway")
                 .setForeignId("gateway")
                 .setForeignSource("EdgeServiceTest")
+                .setLocation("TEST")
                 .setId(254)
                 .addIpInterface(ImmutableIpInterface
                         .newBuilder()
@@ -164,6 +179,7 @@ public class EdgeServiceTest {
                     .setLabel("node" + i)
                     .setForeignId("node" + i)
                     .setForeignSource("EdgeServiceTest")
+                    .setLocation("TEST")
                     .setId(i)
                     .addMetaData(ImmutableMetaData
                             .newBuilder()
@@ -219,7 +235,7 @@ public class EdgeServiceTest {
         EdgeService edgeService = getEdgeServiceMock();
         List<Node> nodes = getNodes();
         Assert.assertEquals(11, nodes.size());
-        Map<String, String> nodeGatewayMap = edgeService.getNodeGatewayMap(nodes);
+        Map<String, String> nodeGatewayMap = edgeService.getNodeGatewayMap();
         System.out.println(nodeGatewayMap);
         Assert.assertEquals(10, nodeGatewayMap.size());
         Assert.assertFalse(nodeGatewayMap.containsKey("gateway"));
@@ -230,28 +246,13 @@ public class EdgeServiceTest {
     @Test
     public void testGetEdgeMap() throws UnknownHostException {
         EdgeService edgeService = getEdgeServiceMock();
-        final List<Node> nodes = getNodes();
-        Assert.assertEquals(11, nodes.size());
-        Node sw = getSwitch();
-        final Set<TopologyEdge> edges = getEdges(getSwitch(), nodes.stream().filter(node -> !node.getLabel().equals(sw.getLabel())).toList());
-        Assert.assertEquals(11, nodes.size());
-        Assert.assertEquals(10, edges.size());
-        final Map<String, Set<String>> edgeMap = edgeService.getEdgeMap(edges);
+        final Map<String, Set<String>> edgeMap = edgeService.getEdgeMap(TopologyProtocol.LLDP);
         Assert.assertEquals(11, edgeMap.size());
         System.out.println(edgeMap);
-        final Set<String> children = edgeMap.get(sw.getLabel());
+        final Set<String> children = edgeMap.get(getSwitch().getLabel());
         Assert.assertEquals(10, children.size());
-        nodes.stream()
-                .filter(node -> !node.getLabel().equals(sw.getLabel()))
-                .forEach( node -> {
-                    Set<String> connected = edgeMap.get(node.getLabel());
-                    Assert.assertEquals(1, connected.size());
-                    Assert.assertTrue(connected.contains(sw.getLabel()));
-                    Assert.assertTrue(children.contains(node.getLabel()));
-                });
 
-        
-        final Map<String, Set<String>> map = edgeService.getEdgeMap(Collections.emptySet());
+        final Map<String, Set<String>> map = edgeService.getEdgeMap(TopologyProtocol.BRIDGE);
         System.out.println(map);
         Assert.assertEquals(0, map.size());
     }
