@@ -2,7 +2,7 @@
   <parent>
     <groupId>org.opennms.plugins.servicenow</groupId>
     <artifactId>opennms-service-now-plugin-parent</artifactId>
-    <version>0.2.2-SNAPSHOT</version>
+    <version>0.3.1-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
   <artifactId>assembly</artifactId>
