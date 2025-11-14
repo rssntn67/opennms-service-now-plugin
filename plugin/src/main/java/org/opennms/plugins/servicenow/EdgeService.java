@@ -285,15 +285,15 @@ public class EdgeService implements Runnable, HealthCheck {
 
         for (String child: nodeGatewayMap.keySet()) {
             String gateway = nodeGatewayMap.get(child);
-            LOG.info("runParentDiscovery: parsing {}: with gateway: {}", child, gateway);
+            LOG.debug("runParentDiscovery: parsing {}: with gateway: {}", child, gateway);
             int i=0;
             if (!edgeMap.containsKey(child)) {
-                LOG.info("runParentDiscovery: no edges found for {}", child);
+                LOG.debug("runParentDiscovery: no edges found for {}", child);
                 continue;
             }
             Set<String> parents = new HashSet<>(List.of(gateway));
             while (!parents.isEmpty() &&!map.containsKey(child) && i< maxIteration) {
-                LOG.info("runParentDiscovery: iteration {}: checking if children of: {}", i,parents);
+                LOG.debug("runParentDiscovery: iteration {}: checking if children of: {}", i,parents);
                 parents = checkParent(map, edgeMap,gateway, child, parents, nodeGatewayMap);
                 i++;
             }
@@ -308,7 +308,7 @@ public class EdgeService implements Runnable, HealthCheck {
                 .forEach(level -> {
                     children.addAll(linkMap.get(level));
                     if (linkMap.get(level).contains(child)) {
-                        LOG.info("checkParent: child: {}: found parent: {}", child,level);
+                        LOG.debug("checkParent: child: {}: found parent: {}", child,level);
                         map.put(child, level);
                     }
                 });
