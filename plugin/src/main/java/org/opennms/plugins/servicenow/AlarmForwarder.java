@@ -2,6 +2,7 @@ package org.opennms.plugins.servicenow;
 
 import org.opennms.integration.api.v1.alarms.AlarmLifecycleListener;
 import org.opennms.integration.api.v1.model.Alarm;
+import org.opennms.integration.api.v1.model.MetaData;
 import org.opennms.plugins.servicenow.client.ApiClientProvider;
 import org.opennms.plugins.servicenow.client.ApiException;
 import org.opennms.plugins.servicenow.client.ClientManager;
@@ -26,7 +27,10 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
     private final EdgeService edgeService;
 
-    public AlarmForwarder(ConnectionManager connectionManager, ApiClientProvider apiClientProvider, String filter, EdgeService edgeservice) {
+    public AlarmForwarder(ConnectionManager connectionManager,
+                          ApiClientProvider apiClientProvider,
+                          String filter,
+                          EdgeService edgeservice) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
         this.filter = Objects.requireNonNull(filter);
@@ -51,9 +55,21 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             return;
         }
 
+        String parentNodeLabel = null;
+        for (MetaData m : alarm.getNode().getMetaData()) {
+            if (m.getContext().equals(edgeService.getContext()) && m.getKey().equals(edgeService.getParentKey())) {
+                parentNodeLabel = m.getValue();
+                break;
+            }
+        }
+        if (parentNodeLabel == null) {
+            parentNodeLabel = edgeService.getParentalNodeLabel(alarm.getNode());
+        }
+
+        Alert alert = toAlert(alarm, parentNodeLabel);
+        LOG.debug("handleNewOrUpdatedAlarm: converted to {}", alert );
+
         try {
-            Alert alert = toAlert(alarm, edgeService.getParentalNodeLabel(alarm.getNode()));
-            LOG.debug("handleNewOrUpdatedAlarm: converted to {}", alert );
             apiClientProvider.send(alert, ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             LOG.info("handleNewOrUpdatedAlarm: forwarded {}", alert.getId() );
         } catch (ApiException e) {
@@ -96,36 +112,22 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     }
 
     private static Alert.Severity toSeverity(Alarm alarm) {
-        switch (alarm.getSeverity()) {
-            case CLEARED:
-                return Alert.Severity.CLEAR;
-            case WARNING:
-                return Alert.Severity.WARNING;
-            case MINOR:
-                return Alert.Severity.MINOR;
-            case MAJOR:
-                return Alert.Severity.MAJOR;
-            case CRITICAL:
-                return Alert.Severity.CRITICAL;
-            default:
-                return Alert.Severity.OK;
-        }
+        return switch (alarm.getSeverity()) {
+            case CLEARED -> Alert.Severity.CLEAR;
+            case WARNING -> Alert.Severity.WARNING;
+            case MINOR -> Alert.Severity.MINOR;
+            case MAJOR -> Alert.Severity.MAJOR;
+            case CRITICAL -> Alert.Severity.CRITICAL;
+            default -> Alert.Severity.OK;
+        };
     }
 
 
     private static Alert.Status toStatus(Alarm alarm) {
-        switch (alarm.getSeverity()) {
-            case INDETERMINATE:
-            case CLEARED:
-            case NORMAL:
-                return Alert.Status.UP;
-            case WARNING:
-            case MINOR:
-            case MAJOR:
-            case CRITICAL:
-            default:
-                return Alert.Status.DOWN;
-        }
+        return switch (alarm.getSeverity()) {
+            case INDETERMINATE, CLEARED, NORMAL -> Alert.Status.UP;
+            default -> Alert.Status.DOWN;
+        };
     }
 
 }
