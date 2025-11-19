@@ -64,7 +64,7 @@ public class SendDownAlarmCommand implements Action {
                         .setLocation("Asia")
                         .setLabel(nodeLabel)
                         .setCategories(List.of("CategoryA", "CategoryB", "Minnovo","MinnovoTest"))
-                        .addMetaData(ImmutableMetaData.newBuilder().setContext("provision")
+                        .addMetaData(ImmutableMetaData.newBuilder().setContext("requisition")
                                 .setKey("parent")
                                 .setValue(parentLabel).build())
                         .setAssetRecord(ImmutableNodeAssetRecord.newBuilder()
