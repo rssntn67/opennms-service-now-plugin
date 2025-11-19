@@ -216,6 +216,7 @@ public class Alert {
                 ", asset='" + asset + '\'' +
                 ", alertTags='" + alertTags + '\'' +
                 ", status=" + status +
+                ", parentalNodeLabel='" + parentalNodeLabel + '\'' +
                 '}';
     }
 
