@@ -59,6 +59,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         for (MetaData m : alarm.getNode().getMetaData()) {
             if (m.getContext().equals(edgeService.getContext()) && m.getKey().equals(edgeService.getParentKey())) {
                 parentNodeLabel = m.getValue();
+                LOG.info("handleNewOrUpdatedAlarm: found parent: {}, for node: {}", parentNodeLabel, alarm.getNode().getLabel() );
                 break;
             }
         }
@@ -71,7 +72,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
         try {
             apiClientProvider.send(alert, ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
-            LOG.info("handleNewOrUpdatedAlarm: forwarded {}", alert.getId() );
+            LOG.info("handleNewOrUpdatedAlarm: forwarded {}", alert);
         } catch (ApiException e) {
             LOG.error("handleNewOrUpdatedAlarm: no forward: alarm {}, message: {}, body: {}",
                     alarm.getReductionKey(),
