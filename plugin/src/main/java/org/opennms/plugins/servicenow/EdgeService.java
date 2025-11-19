@@ -100,6 +100,10 @@ public class EdgeService implements Runnable, HealthCheck {
 
     private ScheduledFuture<?> scheduledFuture;
 
+    public Map<String, String> getParentMap() {
+        return parentMap;
+    }
+
     private volatile Map<String, String> parentMap;
 
 
