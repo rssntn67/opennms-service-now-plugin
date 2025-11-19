@@ -72,7 +72,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
         try {
             apiClientProvider.send(alert, ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
-            LOG.info("handleNewOrUpdatedAlarm: forwarded {}", alert);
+            LOG.info("handleNewOrUpdatedAlarm: forwarded: id={} asset={}, node={}, parent={}", alert.getId(), alert.getAsset(), alert.getNode(), alert.getParentalNodeLabel());
         } catch (ApiException e) {
             LOG.error("handleNewOrUpdatedAlarm: no forward: alarm {}, message: {}, body: {}",
                     alarm.getReductionKey(),
