@@ -29,14 +29,19 @@ public class SendUpAlarmCommand implements Action {
     @Argument(index = 1, name = "nodeId", description = "nodeid of the asset", required = true)
     public int nodeId = -1;
 
+    @Argument(index = 2, name = "label", description = "label of the asset", required = true)
+    public String nodeLabel = "testLabel";
+
+    @Argument(index = 3, name = "parentLabel", description = "label  of parent of the asset", required = true)
+    public String parentLabel = "parentTestLabel";
+
     @Override
     public Object execute() {
-        forwarder.handleNewOrUpdatedAlarm(getAlarm(this.alarmId, this.nodeId));
+        forwarder.handleNewOrUpdatedAlarm(getAlarm(this.alarmId, this.nodeId, this.nodeLabel, this.parentLabel));
         return null;
     }
 
-    public static Alarm getAlarm(int alarmId, int nodeId) {
-        String nodeLabel = "Test-"+nodeId;
+    public static Alarm getAlarm(int alarmId, int nodeId, String nodeLabel, String parentLabel) {
         return ImmutableAlarm.newBuilder()
                 .setId(alarmId)
                 .setReductionKey(AlarmForwarder.ALARM_UEI_NODE_DOWN+":"+nodeId)
@@ -58,7 +63,7 @@ public class SendUpAlarmCommand implements Action {
                         .setCategories(List.of("CategoryA", "CategoryB", "Minnovo", "MinnovoTest"))
                         .addMetaData(ImmutableMetaData.newBuilder().setContext("provision")
                                 .setKey("parent")
-                                .setValue("parentNodeLabel").build())
+                                .setValue(parentLabel).build())
                         .setAssetRecord(ImmutableNodeAssetRecord.newBuilder()
                                 .setDescription("AssetRecord.Description")
                                 .build())
