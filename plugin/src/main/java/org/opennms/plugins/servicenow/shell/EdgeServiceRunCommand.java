@@ -6,7 +6,7 @@ import org.apache.karaf.shell.api.action.lifecycle.Reference;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.opennms.plugins.servicenow.EdgeService;
 
-@Command(scope = "opennms-service-now", name = "get-parent-node", description = "Get Parent Node Data.")
+@Command(scope = "opennms-service-now", name = "edge-service-run", description = "Get Parent Node Data.")
 @Service
 public class EdgeServiceRunCommand implements Action {
 
