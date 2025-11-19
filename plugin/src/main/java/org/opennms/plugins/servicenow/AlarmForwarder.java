@@ -86,8 +86,8 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         alert.setMetricName(alarm.getReductionKey());
         alert.setKey(alarm.getLogMessage());
         alert.setResource(alarm.getNode().getAssetRecord().getDescription());
-        alert.setNode(alarm.getNode().getLabel());
-        alert.setAsset(alarm.getNode().getId().toString());
+        alert.setNode(alarm.getNode().getForeignSource());
+        alert.setAsset(alarm.getNode().getLabel());
         alert.setAlertTags(alarm.getNode().getCategories().toString());
         alert.setStatus(toStatus(alarm));
         alert.setParentalNodeLabel(parentNodeLabel);
