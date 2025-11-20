@@ -3,7 +3,7 @@
     <parent>
         <groupId>org.opennms.plugins.servicenow</groupId>
         <artifactId>assembly</artifactId>
-        <version>0.3.3-SNAPSHOT</version>
+        <version>1.0.0</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>kar</artifactId>
@@ -25,7 +25,7 @@
                         </goals>
                         <configuration>
                             <featuresFile>mvn:org.opennms.plugins.servicenow/karaf-features/${project.version}/xml</featuresFile>
-                            <finalName>opennms-opennms-service-now-plugin-${project.version}</finalName>
+                            <finalName>opennms-service-now-plugin-${project.version}</finalName>
                             <ignoreDependencyFlag>true</ignoreDependencyFlag>
                             <archive>
                               <manifestEntries>
