@@ -33,6 +33,9 @@ public class EdgeServiceTest {
     private final static int startId = 11;
     private final static int endId = 20;
 
+    private static Set<TopologyEdge> getEdges() throws UnknownHostException {
+       return getEdges(getSwitch(),getNodes().stream().filter(node -> !node.getLabel().equals("switch")).toList());
+    }
     private static EdgeService getEdgeServiceMock() throws UnknownHostException {
         NodeDao nodeDao = mock(NodeDao.class);
         when(nodeDao.getNodes()).thenReturn(getNodes());
@@ -44,7 +47,7 @@ public class EdgeServiceTest {
         when(nodeDao.getNodeById(getGateway().getId())).thenReturn(getGateway());
         EdgeDao edgeDao = mock(EdgeDao.class);
         when(edgeDao.getEdges(TopologyProtocol.LLDP))
-                .thenReturn(getEdges(getSwitch(),getNodes().stream().filter(node -> !node.getLabel().equals("switch")).toList()));
+                .thenReturn(getEdges());
         when(edgeDao.getEdges(TopologyProtocol.BRIDGE))
                 .thenReturn(new HashSet<>());
 
@@ -230,29 +233,30 @@ public class EdgeServiceTest {
     }
 
     @Test
-    public void testGetNodeGatewayMapTest() throws UnknownHostException {
+    public void nodeGatewayMapTest() throws UnknownHostException {
 
         EdgeService edgeService = getEdgeServiceMock();
         List<Node> nodes = getNodes();
         Assert.assertEquals(11, nodes.size());
-        Map<String, String> nodeGatewayMap = edgeService.getNodeGatewayMap();
+        Map<String, String> nodeGatewayMap = edgeService.runNodeLabelToGatewayMap(nodes);
         System.out.println(nodeGatewayMap);
         Assert.assertEquals(10, nodeGatewayMap.size());
-        Assert.assertFalse(nodeGatewayMap.containsKey("gateway"));
+        Assert.assertFalse(nodeGatewayMap.containsKey("10.10.10.254"));
         for (String value : new HashSet<>(nodeGatewayMap.values()))
-            Assert.assertEquals("gateway", value);
+            Assert.assertEquals("10.10.10.254", value);
     }
 
     @Test
     public void testGetEdgeMap() throws UnknownHostException {
         EdgeService edgeService = getEdgeServiceMock();
-        final Map<String, Set<String>> edgeMap = edgeService.getEdgeMap(TopologyProtocol.LLDP);
+        Set<TopologyEdge> edges = getEdges();
+        final Map<String, Set<String>> edgeMap = edgeService.runEdgeMap(edges);
         Assert.assertEquals(11, edgeMap.size());
         System.out.println(edgeMap);
         final Set<String> children = edgeMap.get(getSwitch().getLabel());
         Assert.assertEquals(10, children.size());
 
-        final Map<String, Set<String>> map = edgeService.getEdgeMap(TopologyProtocol.BRIDGE);
+        final Map<String, Set<String>> map = edgeService.runEdgeMap(new HashSet<>());
         System.out.println(map);
         Assert.assertEquals(0, map.size());
     }

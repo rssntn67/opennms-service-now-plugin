@@ -2,7 +2,6 @@ package org.opennms.plugins.servicenow;
 
 import org.opennms.integration.api.v1.alarms.AlarmLifecycleListener;
 import org.opennms.integration.api.v1.model.Alarm;
-import org.opennms.integration.api.v1.model.MetaData;
 import org.opennms.plugins.servicenow.client.ApiClientProvider;
 import org.opennms.plugins.servicenow.client.ApiException;
 import org.opennms.plugins.servicenow.client.ClientManager;
@@ -55,16 +54,9 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             return;
         }
 
-        String parentNodeLabel = null;
-        for (MetaData m : alarm.getNode().getMetaData()) {
-            if (m.getContext().equals(edgeService.getContext()) && m.getKey().equals(edgeService.getParentKey())) {
-                parentNodeLabel = m.getValue();
-                LOG.info("handleNewOrUpdatedAlarm: found parent: {}, for node: {}", parentNodeLabel, alarm.getNode().getLabel() );
-                break;
-            }
-        }
+        String parentNodeLabel = edgeService.getParentByParentKey(alarm.getNode());
         if (parentNodeLabel == null) {
-            parentNodeLabel = edgeService.getParentalNodeLabel(alarm.getNode());
+            parentNodeLabel = edgeService.getParentByGatewayKey(alarm.getNode());
         }
 
         Alert alert = toAlert(alarm, parentNodeLabel);

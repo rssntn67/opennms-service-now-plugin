@@ -9,11 +9,9 @@ import org.apache.karaf.shell.support.table.Col;
 import org.apache.karaf.shell.support.table.ShellTable;
 import org.opennms.plugins.servicenow.EdgeService;
 
-import java.util.Map;
-
-@Command(scope = "opennms-service-now", name = "edge-service-run", description = "Get Parent Node Data.")
+@Command(scope = "opennms-service-now", name = "get-locations", description = "Get List of Onms locations.")
 @Service
-public class EdgeServiceRunCommand implements Action {
+public class GetLocationsCommand implements Action {
 
     @Reference
     private Session session;
@@ -23,19 +21,14 @@ public class EdgeServiceRunCommand implements Action {
 
     @Override
     public Object execute() {
-        service.run();
         final var table = new ShellTable()
                 .size(session.getTerminal().getWidth() - 1)
-                .column(new Col("label").maxSize(72))
-                .column(new Col("parent").maxSize(72))
-                ;
-        for (Map.Entry<String,String> entry : service.getParentByGatewayKeyMap().entrySet()) {
+                .column(new Col("location").maxSize(72));
+        for (String location: service.getLocations()) {
             final var row = table.addRow();
-            row.addContent(entry.getKey());
-            row.addContent(entry.getValue());
+            row.addContent(location);
         }
         table.print(System.out,true);
         return null;
     }
-
 }

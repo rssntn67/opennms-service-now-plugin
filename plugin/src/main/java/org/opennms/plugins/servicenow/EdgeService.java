@@ -19,6 +19,8 @@ import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -30,6 +32,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class EdgeService implements Runnable, HealthCheck {
 
@@ -74,6 +77,12 @@ public class EdgeService implements Runnable, HealthCheck {
 
     }
 
+    private final Map<String,String> nodeLabelToGatewayMap = new ConcurrentHashMap<>();
+    private final Map<String,String> gatewayToGatewayLabelMap = new ConcurrentHashMap<>();
+    private final Map<TopologyProtocol, Map<String,Set<String>>> edgeMap = new ConcurrentHashMap<>();
+    private volatile Map<String, String> parentByGatewayKeyMap;
+
+    private final List<Node> nodes = Collections.synchronizedList(new ArrayList<>());
     private static final Logger LOG = LoggerFactory.getLogger(EdgeService.class);
     private final NodeDao nodeDao;
     private final EdgeDao edgeDao;
@@ -81,39 +90,20 @@ public class EdgeService implements Runnable, HealthCheck {
     private final String context;
     private final String parentKey;
     private final String gatewayKey;
-
-    public String getContext() {
-        return context;
-    }
-
-    public String getParentKey() {
-        return parentKey;
-    }
-
-    public String getGatewayKey() {
-        return gatewayKey;
-    }
-
     private final String excludedForeignSource;
     private final long initialDelayL;
     private final long delayL;
 
     private ScheduledFuture<?> scheduledFuture;
 
-    public Map<String, String> getParentMap() {
-        return parentMap;
-    }
-
-    private volatile Map<String, String> parentMap;
-
 
     private final Integer maxIteration;
 
     public void init() {
-        parentMap = new ConcurrentHashMap<>();
-        LOG.info("EdgeService init: parentMap initialized: {}", this.parentMap != null);
-        LOG.info("EdgeService init: parentMap size: {}", this.parentMap.size());
-        LOG.info("EdgeService init: parentMap class: {}", this.parentMap.getClass().getName());
+        parentByGatewayKeyMap = new ConcurrentHashMap<>();
+        LOG.info("EdgeService init: parentMap initialized: {}", this.parentByGatewayKeyMap != null);
+        LOG.info("EdgeService init: parentMap size: {}", this.parentByGatewayKeyMap.size());
+        LOG.info("EdgeService init: parentMap class: {}", this.parentByGatewayKeyMap.getClass().getName());
         LOG.info("EdgeService init: this reference: {}", this);
         initScheduler();
     }
@@ -129,7 +119,7 @@ public class EdgeService implements Runnable, HealthCheck {
                                 delayL,
                                 TimeUnit.MILLISECONDS
                         );
-        LOG.info("EdgeService init: Scheduler initialized, parentMap: {}", this.parentMap.size());
+        LOG.info("EdgeService init: Scheduler initialized, parentMap: {}", this.parentByGatewayKeyMap.size());
     }
 
     public EdgeService(final EdgeDao edgeDao,
@@ -155,111 +145,143 @@ public class EdgeService implements Runnable, HealthCheck {
         this.delayL =  Long.parseLong(Objects.requireNonNull(delay));
     }
 
-    public String getParentalNodeLabelById(int nodeid) {
-        return getParentalNodeLabel(nodeDao.getNodeById(nodeid));
+    public Set<String> getGateways() {
+        return new HashSet<>(nodeLabelToGatewayMap.values());
     }
 
-    public String getParentalNodeLabel(Node node) {
-        if (this.parentMap.containsKey(node.getLabel()))
-            return this.parentMap.get(node.getLabel());
+    public Map<String, String> getGatewayToGatewayLabelMap() {
+        return gatewayToGatewayLabelMap;
+    }
+
+    public String getGatewayLabel(String ip) {
+        if (gatewayToGatewayLabelMap.containsKey(ip)) {
+            return gatewayToGatewayLabelMap.get(ip);
+        }
+        return "noGatewayLabelFound";
+    }
+
+    public Map<String, String> getParentByGatewayKeyMap() {
+        return parentByGatewayKeyMap;
+    }
+
+    public String getParentByParentKey(Node node) {
+        for (MetaData m : node.getMetaData()) {
+            if (m.getContext().equals(this.context) && m.getKey().equals(this.parentKey)) {
+                LOG.info("getParent: found parent: {}, for node: {}", m.getValue(), node.getLabel() );
+                return m.getValue();
+            }
+        }
+        return null;
+    }
+
+    public String getParentByParentKey(int nodeId) {
+        return getParentByParentKey(nodeDao.getNodeById(nodeId));
+    }
+
+    public String getParentByGatewayKey(Node node) {
+        if (this.parentByGatewayKeyMap.containsKey(node.getLabel()))
+            return this.parentByGatewayKeyMap.get(node.getLabel());
         return "NoParentNodeFound";
     }
 
+    public String getParentByGatewayKey(int nodeId) {
+        return getParentByGatewayKey(nodeDao.getNodeById(nodeId));
+    }
+
+    public Map<String, String> runLabelToGatewayLabelMap() {
+        final Map<String, String> map = new HashMap<>();
+        for (Map.Entry<String,String> entry: nodeLabelToGatewayMap.entrySet()) {
+            if (gatewayToGatewayLabelMap.containsKey(entry.getValue())) {
+                map.put(entry.getKey(), gatewayToGatewayLabelMap.get(entry.getValue()));
+            }
+        }
+        LOG.debug("run: nodeGatewayMap: {}", map);
+        return map;
+    }
 
     @Override
     public void run() {
+        this.nodes.clear();
+        this.nodes.addAll(nodeDao.getNodes());
 
-        Map<String, String> nodeGatewayMap =
-                getNodeGatewayMap();
-        LOG.info("run: node to gateway map size: {}", nodeGatewayMap.size());
+        this.nodeLabelToGatewayMap.clear();
+        this.nodeLabelToGatewayMap.putAll(runNodeLabelToGatewayMap(this.nodes));
 
+        gatewayToGatewayLabelMap.clear();
+        gatewayToGatewayLabelMap.putAll(runGatewayToGatewayLabelMap(nodeDao.getDefaultLocationName(),new HashSet<>(nodeLabelToGatewayMap.values())));
+        LOG.debug("run: mappingGatewayIpToGatewayNodeLabel: {}", gatewayToGatewayLabelMap);
+
+        edgeMap.put(TopologyProtocol.LLDP, runEdgeMap(edgeDao.getEdges(TopologyProtocol.LLDP)));
+        LOG.debug("run: edge lldp map size: {}", edgeMap.get(TopologyProtocol.LLDP).size() );
         Map<String, String> map =
                 runParentDiscovery(
-                        getEdgeMap(TopologyProtocol.LLDP),
-                        nodeGatewayMap);
+                    edgeMap.get(TopologyProtocol.LLDP),
+                    runLabelToGatewayLabelMap());
         LOG.info("run: lldp parent map size: {}", map.size());
-        this.parentMap.clear();
-        this.parentMap.putAll(map);
-        Map<String, Set<String>> bridgeEdgeMap = getEdgeMap(TopologyProtocol.BRIDGE);
-        LOG.info("run: {} bridge map size: {}", TopologyProtocol.BRIDGE, bridgeEdgeMap.size());
-        //runParentDiscovery(bridgeEdgeMap, nodeGatewayMap);
+        this.parentByGatewayKeyMap.clear();
+        this.parentByGatewayKeyMap.putAll(map);
 
-        LOG.info("run: parentMap: {}", this.parentMap.size());
+        LOG.info("run: parentMap: {}", this.parentByGatewayKeyMap.size());
     }
 
+    public Set<String> getLocations() {
+        return this.nodes.stream().map(Node::getLocation).collect(Collectors.toSet());
+    }
 
-    protected Map<String,String> getNodeGatewayMap() {
-        LOG.debug("getNodeGatewayMap: node size: {}", nodeDao.getNodeCount());
-        Set<String> onmsLocations = new HashSet<>();
-        Set<String> gatewayIps = new HashSet<>();
-        Map<String,String> mappingNodeLabelToGateway= new HashMap<>();
-        nodeDao.getNodes().forEach(node -> {
-            LOG.debug("getNodeGatewayMap: parsing: label: {}, location: {}", node.getLabel(), node.getLocation());
-            onmsLocations.add(node.getLocation());
+    public Map<String, String> runNodeLabelToGatewayMap(List<Node> nodes) {
+        Map<String, String> map = new HashMap<>();
+        nodes.forEach(node -> {
+            LOG.debug("run: parsing: label: {}, location: {}", node.getLabel(), node.getLocation());
             String gatewayIp = node.getMetaData().stream()
                     .filter(m -> m.getContext().equals(context) && m.getKey().equals(gatewayKey))
                     .map(MetaData::getValue)
                     .findFirst()
                     .orElse(null);
             if (gatewayIp != null) {
-                LOG.debug("getNodeGatewayMap: found: {}", gatewayIp);
-                gatewayIps.add(gatewayIp);
-                mappingNodeLabelToGateway.put(node.getLabel(), gatewayIp);
+                LOG.debug("run: found: {}", gatewayIp);
+                map.put(node.getLabel(), gatewayIp);
             }
         });
-        LOG.debug("getNodeGatewayMap: mappingNodeLabelToGateway size: {}", mappingNodeLabelToGateway.size());
-        LOG.debug("getNodeGatewayMap: gateways ip size: {}", gatewayIps.size());
-        LOG.debug("getNodeGatewayMap: locations size: {}", onmsLocations.size());
-        if (mappingNodeLabelToGateway.isEmpty()) {
-            return new HashMap<>();
-        }
-        Map<String,String> mappingGatewayIpToGatewayNodeLabel = new HashMap<>();
-
-        gatewayIps.forEach( gwIpStr -> {
-            LOG.debug("getNodeGatewayMap: try to get label for gateway: {}", gwIpStr );
-            try {
-                InetAddress gwIp = InetAddress.getByName(gwIpStr);
-                onmsLocations.forEach( onmsLocation -> {
-                    LOG.debug("getNodeGatewayMap: try to get label for location: {}", onmsLocation );
-                    Integer nodeId = interfaceToNodeCache.getFirstNodeId(onmsLocation, gwIp).orElse(0);
-                    LOG.debug("getNodeGatewayMap: get NodeId: {}", nodeId );
-                    if (nodeId > 0) {
-                        Node node = nodeDao.getNodeById(nodeId);
-                        LOG.debug("getNodeGatewayMap: got Node: {}, FS {}", node.getLabel(), node.getForeignSource());
-                        LOG.debug("getNodeGatewayMap: checking FS {}: against excluded: {}", node.getForeignSource(), excludedForeignSource);
-                        if (!node.getForeignSource().equals(excludedForeignSource)) {
-                            LOG.debug("getNodeGatewayMap: mappingGatewayIpToGatewayNodeLabel adding: {}, {}", gwIpStr, node.getLabel());
-                            mappingGatewayIpToGatewayNodeLabel.put(gwIpStr, node.getLabel());
-                        }
-                    }
-                });
-            } catch (UnknownHostException e) {
-                LOG.warn("getNodeGatewayMap: error in gateway string: {}", gwIpStr, e);
-            }
-        });
-
-        LOG.debug("getNodeGatewayMap: mappingGatewayIpToGatewayNodeLabel size: {}", mappingGatewayIpToGatewayNodeLabel.size());
-
-        if (mappingGatewayIpToGatewayNodeLabel.isEmpty()) {
-            return new HashMap<>();
-        }
-
-        LOG.debug("getNodeGatewayMap: mappingGatewayIpToGatewayNodeLabel: {}", mappingGatewayIpToGatewayNodeLabel);
-        final Map<String, String> nodeGatewayMap = new HashMap<>();
-        for (Map.Entry<String,String> entry: mappingNodeLabelToGateway.entrySet()) {
-            if (mappingGatewayIpToGatewayNodeLabel.containsKey(entry.getValue())) {
-                nodeGatewayMap.put(entry.getKey(), mappingGatewayIpToGatewayNodeLabel.get(entry.getValue()));
-            }
-        }
-        LOG.debug("getNodeGatewayMap: nodeGatewayMap: {}", nodeGatewayMap);
-
-        return nodeGatewayMap;
+        LOG.debug("run: mappingNodeLabelToGateway size: {}", map.size());
+        return map;
     }
 
-    protected Map<String, Set<String>> getEdgeMap(TopologyProtocol protocol) {
+    public Map<String, String> runGatewayToGatewayLabelMap(String location, Set<String> gateways) {
+        return gateways
+                .stream()
+                .collect(Collectors.toMap(gateway -> gateway,gateway ->runGatewayToGatewayLabel(location, gateway)));
+    }
+
+    public String runGatewayToGatewayLabel(String onmsLocation, String gateway) {
+        LOG.debug("run: try to get label for gateway: {} and location: {}", gateway, onmsLocation);
+        InetAddress gwIp;
+        try {
+            gwIp = InetAddress.getByName(gateway);
+        } catch (UnknownHostException e) {
+            LOG.warn("run: error in gateway string: {}", gateway, e);
+            return null;
+        }
+
+        LOG.debug("run: try to get label for location: {}", onmsLocation );
+
+        Integer nodeId = interfaceToNodeCache.getFirstNodeId(onmsLocation, gwIp).orElse(0);
+        LOG.debug("run: get NodeId: {}", nodeId );
+        if (nodeId > 0) {
+            Node node = nodeDao.getNodeById(nodeId);
+            LOG.debug("run: got Node: {}, FS {}", node.getLabel(), node.getForeignSource());
+            LOG.debug("run: checking FS {}: against excluded: {}", node.getForeignSource(), excludedForeignSource);
+            if (!node.getForeignSource().equals(excludedForeignSource)) {
+                LOG.debug("run: mappingGatewayIpToGatewayNodeLabel adding: {}, {}", gateway, node.getLabel());
+                return node.getLabel();
+            }
+        }
+        return null;
+    }
+
+    public Map<String, Set<String>> runEdgeMap(Set<TopologyEdge> edges) {
         EdgeService.EdgeServiceVisitor visitor = new EdgeServiceVisitor();
         final Map<String, Set<String>> map = new HashMap<>();
-        edgeDao.getEdges(protocol).forEach(edge -> {
+        edges.forEach(edge -> {
             visitor.clean();
             edge.visitEndpoints(visitor);
 

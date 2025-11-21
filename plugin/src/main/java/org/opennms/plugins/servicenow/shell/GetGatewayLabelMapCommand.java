@@ -11,9 +11,9 @@ import org.opennms.plugins.servicenow.EdgeService;
 
 import java.util.Map;
 
-@Command(scope = "opennms-service-now", name = "edge-service-run", description = "Get Parent Node Data.")
+@Command(scope = "opennms-service-now", name = "get-gateway-label-map", description = "Get Gateway Label Map.")
 @Service
-public class EdgeServiceRunCommand implements Action {
+public class GetGatewayLabelMapCommand implements Action {
 
     @Reference
     private Session session;
@@ -23,13 +23,12 @@ public class EdgeServiceRunCommand implements Action {
 
     @Override
     public Object execute() {
-        service.run();
         final var table = new ShellTable()
                 .size(session.getTerminal().getWidth() - 1)
+                .column(new Col("gateway").maxSize(72))
                 .column(new Col("label").maxSize(72))
-                .column(new Col("parent").maxSize(72))
                 ;
-        for (Map.Entry<String,String> entry : service.getParentByGatewayKeyMap().entrySet()) {
+        for (Map.Entry<String,String> entry : service.getGatewayToGatewayLabelMap().entrySet()) {
             final var row = table.addRow();
             row.addContent(entry.getKey());
             row.addContent(entry.getValue());
@@ -37,5 +36,4 @@ public class EdgeServiceRunCommand implements Action {
         table.print(System.out,true);
         return null;
     }
-
 }

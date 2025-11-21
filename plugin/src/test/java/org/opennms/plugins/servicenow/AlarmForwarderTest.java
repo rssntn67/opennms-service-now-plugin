@@ -72,8 +72,8 @@ public class AlarmForwarderTest {
         System.out.println(mapper.writeValueAsString(alert));
 
         assertThat(alert.getId(), equalTo(""+alarmId));
-        assertThat(alert.getNode(), equalTo(nodeLabel));
-        assertThat(alert.getAsset(), equalTo(""+nodeId));
+        assertThat(alert.getAsset(), equalTo(nodeLabel));
+        assertThat(alert.getNode(), equalTo(""+nodeId));
         assertThat(alert.getMetricName(), equalTo(AlarmForwarder.ALARM_UEI_NODE_DOWN+"::"+nodeId));
         assertThat(alert.getKey(), equalTo(logMsg));
         assertThat(alert.getDescription(), equalTo(description.replaceAll("<p>","").replaceAll("</p>","\n")));

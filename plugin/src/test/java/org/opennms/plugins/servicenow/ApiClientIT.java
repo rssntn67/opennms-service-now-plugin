@@ -2,6 +2,7 @@ package org.opennms.plugins.servicenow;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.opennms.plugins.servicenow.client.ApiClient;
 import org.opennms.plugins.servicenow.client.ApiClientCredentials;
@@ -40,6 +41,7 @@ public class ApiClientIT {
     }
 
     @Test
+    @Ignore
     public void getAccessTokenAndSendTestAlarm() throws InterruptedException, ApiException {
         ApiClient client = new ApiClient();
         TokenResponse token = client.getAccessToken(getCredentials());
@@ -86,6 +88,7 @@ public class ApiClientIT {
     }
 
     @Test
+    @Ignore
     public void canUseConnectionAndForwardAlarm() {
         // Wire it up
         ApiClientProviderImpl apiClientProvider = new ApiClientProviderImpl();

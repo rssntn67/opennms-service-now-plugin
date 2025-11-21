@@ -7,9 +7,9 @@ import org.apache.karaf.shell.api.action.lifecycle.Reference;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.opennms.plugins.servicenow.EdgeService;
 
-@Command(scope = "opennms-service-now", name = "get-parent-node", description = "Get Parent Node Data.")
+@Command(scope = "opennms-service-now", name = "get-parent-by-gateway-key", description = "Get Parent Node Data.")
 @Service
-public class GetParentNodeCommand implements Action {
+public class GetParentByGatewayKeyCommand implements Action {
 
     @Reference
     private EdgeService service;
@@ -19,7 +19,7 @@ public class GetParentNodeCommand implements Action {
 
     @Override
     public Object execute() {
-        System.out.println(service.getParentalNodeLabelById(nodeId));
+        System.out.println(service.getParentByGatewayKey(nodeId));
         return null;
     }
 
