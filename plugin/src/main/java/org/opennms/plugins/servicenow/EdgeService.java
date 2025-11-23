@@ -101,25 +101,25 @@ public class EdgeService implements Runnable, HealthCheck {
 
     public void init() {
         parentByGatewayKeyMap = new ConcurrentHashMap<>();
-        LOG.info("EdgeService init: parentMap initialized: {}", this.parentByGatewayKeyMap != null);
-        LOG.info("EdgeService init: parentMap size: {}", this.parentByGatewayKeyMap.size());
-        LOG.info("EdgeService init: parentMap class: {}", this.parentByGatewayKeyMap.getClass().getName());
-        LOG.info("EdgeService init: this reference: {}", this);
+        LOG.info("init: parentMap initialized: {}", this.parentByGatewayKeyMap != null);
+        LOG.info("init: parentMap size: {}", this.parentByGatewayKeyMap.size());
+        LOG.info("init: parentMap class: {}", this.parentByGatewayKeyMap.getClass().getName());
+        LOG.info("init: this reference: {}", this);
         initScheduler();
     }
 
     private void initScheduler() {
-        ScheduledExecutorService scheduledExecutorService =
-                Executors.newSingleThreadScheduledExecutor();
-        scheduledFuture =
-                scheduledExecutorService
-                        .scheduleWithFixedDelay(
-                        this,
-                                initialDelayL,
-                                delayL,
-                                TimeUnit.MILLISECONDS
-                        );
-        LOG.info("EdgeService init: Scheduler initialized, parentMap: {}", this.parentByGatewayKeyMap.size());
+        try (ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor()) {
+            scheduledFuture =
+                    scheduledExecutorService
+                            .scheduleWithFixedDelay(
+                                    this,
+                                    initialDelayL,
+                                    delayL,
+                                    TimeUnit.MILLISECONDS
+                            );
+        }
+        LOG.info("init: Scheduler initialized, parentMap: {}", this.parentByGatewayKeyMap.size());
     }
 
     public EdgeService(final EdgeDao edgeDao,
@@ -143,6 +143,10 @@ public class EdgeService implements Runnable, HealthCheck {
         this.excludedForeignSource = Objects.requireNonNull(excludedForeignSource);
         this.initialDelayL =  Long.parseLong(Objects.requireNonNull(initialDelay));
         this.delayL =  Long.parseLong(Objects.requireNonNull(delay));
+    }
+
+    public Set<String> getEdges(TopologyProtocol protocol, String label) {
+        return edgeMap.get(protocol).get(label);
     }
 
     public Set<String> getGateways() {
@@ -186,6 +190,18 @@ public class EdgeService implements Runnable, HealthCheck {
 
     public String getParentByGatewayKey(int nodeId) {
         return getParentByGatewayKey(nodeDao.getNodeById(nodeId));
+    }
+
+    public String getParent(int nodeId) {
+        return getParent(nodeDao.getNodeById(nodeId));
+    }
+
+    public String getParent(final Node node) {
+        String parent = getParentByParentKey(node);
+        if (parent == null) {
+            parent = getParentByGatewayKey(node);
+        }
+        return parent;
     }
 
     public Map<String, String> runLabelToGatewayLabelMap() {
@@ -293,25 +309,35 @@ public class EdgeService implements Runnable, HealthCheck {
         return map;
     }
 
+    //Alternate way for finding parent
+    //for each gateway I found child
+    // -> the idea is that all the child are connected to gateway
+    // first step -> see the gateway edges.
+    // for each check if there is one of the node with this as gateway
+    // next step investigate the gateway->linksN.
+    // how many steps and in what direction? No more then 3. When you find the first client proceed.
+
+    //alternate start from the node ->
+
     protected Map<String,String> runParentDiscovery(
             final Map<String,Set<String>>edgeMap,
             final Map<String,String> nodeGatewayMap
             ) {
         if (edgeMap == null) {
-            LOG.warn("runParentDiscovery: edgeMap is null");
+            LOG.warn("run: edgeMap is null");
             return new HashMap<>();
         }
         if (edgeMap.isEmpty()) {
-            LOG.warn("runParentDiscovery: edgeMap is empty");
+            LOG.warn("run: edgeMap is empty");
             return new HashMap<>();
         }
 
         if (nodeGatewayMap == null) {
-            LOG.warn("runParentDiscovery: nodeGatewayMap is null");
+            LOG.warn("run: nodeGatewayMap is null");
             return new HashMap<>();
         }
         if (nodeGatewayMap.isEmpty()) {
-            LOG.warn("runParentDiscovery: nodeGatewayMap is empty");
+            LOG.warn("run: nodeGatewayMap is empty");
             return new HashMap<>();
         }
 
@@ -319,15 +345,15 @@ public class EdgeService implements Runnable, HealthCheck {
 
         for (String child: nodeGatewayMap.keySet()) {
             String gateway = nodeGatewayMap.get(child);
-            LOG.debug("runParentDiscovery: parsing {}: with gateway: {}", child, gateway);
+            LOG.debug("run: parsing {}: with gateway: {}", child, gateway);
             int i=0;
             if (!edgeMap.containsKey(child)) {
-                LOG.debug("runParentDiscovery: no edges found for {}", child);
+                LOG.debug("run: no edges found for {}", child);
                 continue;
             }
             Set<String> parents = new HashSet<>(List.of(gateway));
             while (!parents.isEmpty() &&!map.containsKey(child) && i< maxIteration) {
-                LOG.debug("runParentDiscovery: iteration {}: checking if children of: {}", i,parents);
+                LOG.debug("run: iteration {}: checking if children of: {}", i,parents);
                 parents = checkParent(map, edgeMap,gateway, child, parents, nodeGatewayMap);
                 i++;
             }
@@ -342,7 +368,7 @@ public class EdgeService implements Runnable, HealthCheck {
                 .forEach(level -> {
                     children.addAll(linkMap.get(level));
                     if (linkMap.get(level).contains(child)) {
-                        LOG.debug("checkParent: child: {}: found parent: {}", child,level);
+                        LOG.debug("run: child: {}: found parent: {}", child,level);
                         map.put(child, level);
                     }
                 });

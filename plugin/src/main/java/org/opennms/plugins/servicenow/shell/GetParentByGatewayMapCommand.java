@@ -11,9 +11,9 @@ import org.opennms.plugins.servicenow.EdgeService;
 
 import java.util.Map;
 
-@Command(scope = "opennms-service-now", name = "get-parent-by-gateway-key-map", description = "Get Gateway Key Parent Node Data Map.")
+@Command(scope = "opennms-service-now", name = "get-parent-by-gateway-map", description = "Get Gateway Key Parent Node Data Map.")
 @Service
-public class GetParentByGatewayKeyMapCommand implements Action {
+public class GetParentByGatewayMapCommand implements Action {
 
     @Reference
     private Session session;

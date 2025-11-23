@@ -54,16 +54,13 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             return;
         }
 
-        String parentNodeLabel = edgeService.getParentByParentKey(alarm.getNode());
-        if (parentNodeLabel == null) {
-            parentNodeLabel = edgeService.getParentByGatewayKey(alarm.getNode());
-        }
-
-        Alert alert = toAlert(alarm, parentNodeLabel);
+        Alert alert = toAlert(alarm, edgeService.getParent(alarm.getNode()));
         LOG.debug("handleNewOrUpdatedAlarm: converted to {}", alert );
 
         try {
-            apiClientProvider.send(alert, ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
+            apiClientProvider.send(
+                    alert,
+                    ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             LOG.info("handleNewOrUpdatedAlarm: forwarded: id={} asset={}, node={}, parent={}", alert.getId(), alert.getAsset(), alert.getNode(), alert.getParentalNodeLabel());
         } catch (ApiException e) {
             LOG.error("handleNewOrUpdatedAlarm: no forward: alarm {}, message: {}, body: {}",
@@ -75,12 +72,12 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
     @Override
     public void handleAlarmSnapshot(List<Alarm> alarms) {
-        // pass
+        LOG.debug("handleAlarmSnapshot: got {} alarms", alarms.size());
     }
 
     @Override
     public void handleDeletedAlarm(int alarmId, String reductionKey) {
-        // pass
+        LOG.debug("handleDeletedAlarm: alarm:{} with reductionKey:{}", alarmId, reductionKey);
     }
 
     public static Alert toAlert(Alarm alarm, String parentNodeLabel) {

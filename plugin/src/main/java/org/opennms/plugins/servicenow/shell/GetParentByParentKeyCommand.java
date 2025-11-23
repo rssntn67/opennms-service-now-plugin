@@ -7,7 +7,7 @@ import org.apache.karaf.shell.api.action.lifecycle.Reference;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.opennms.plugins.servicenow.EdgeService;
 
-@Command(scope = "opennms-service-now", name = "get-parent-by-parent-key", description = "Get Parent Node Data.")
+@Command(scope = "opennms-service-now", name = "get-parent-by-parent-key", description = "Get Parent Node Data Using parent key.")
 @Service
 public class GetParentByParentKeyCommand implements Action {
 
