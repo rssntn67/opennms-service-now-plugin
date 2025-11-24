@@ -238,6 +238,9 @@ public class EdgeService implements Runnable, HealthCheck {
         gatewayToGatewayLabelMap.putAll(populateGatewayToGatewayLabelMap(this.locations, new HashSet<String>(gatewayToChildMap.keySet())));
         LOG.info("run: gatewayToGatewayLabelMap: {}", gatewayToGatewayLabelMap.size());
 
+        Map<String, Set<String>> gatewayMap = populateGatewayLabelToSetLabelMap();
+        LOG.info("run: gatewayMap size: {}", gatewayMap.size());
+
         Set<TopologyEdge> lldpEdges = edgeDao.getEdges(TopologyProtocol.LLDP);
         LOG.info("run: lldpEdges size: {}", lldpEdges.size());
 
@@ -246,8 +249,6 @@ public class EdgeService implements Runnable, HealthCheck {
         edgeMap.remove(TopologyProtocol.LLDP);
         edgeMap.put(TopologyProtocol.LLDP, lldpEdgeMap);
 
-        Map<String, Set<String>> gatewayMap = populateGatewayLabelToSetLabelMap();
-        LOG.info("run: gatewayMap size: {}", gatewayMap.size());
         Map<String, String> map =
                 runDiscovery(
                     lldpEdgeMap,
@@ -287,11 +288,11 @@ public class EdgeService implements Runnable, HealthCheck {
                 String gwLabel = findGatewayToGatewayLabel(location, gateway);
                 if (gwLabel != null) {
                     map.put(gateway, gwLabel);
-                    LOG.info("run: gateway: {}, -> label: {}", gateway, gwLabel);
+                    LOG.debug("run: gateway: {}, -> label: {}", gateway, gwLabel);
                     continue G;
                 }
             }
-            LOG.info("run: gateway: {}, -> no node found", gateway);
+            LOG.debug("run: gateway: {}, -> no node found", gateway);
         }
         return map;
     }
