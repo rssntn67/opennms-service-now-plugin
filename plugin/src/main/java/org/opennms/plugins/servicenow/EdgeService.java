@@ -77,12 +77,14 @@ public class EdgeService implements Runnable, HealthCheck {
 
     }
 
-    private final Map<String,String> nodeLabelToGatewayMap = new ConcurrentHashMap<>();
+    private final List<Node> nodes = Collections.synchronizedList(new ArrayList<>());
+    private final Set<String> locations = Collections.synchronizedSet(new HashSet<>());
+
+    private final Map<String, Set<String>> gatewayToChildMap = new ConcurrentHashMap<>();
     private final Map<String,String> gatewayToGatewayLabelMap = new ConcurrentHashMap<>();
     private final Map<TopologyProtocol, Map<String,Set<String>>> edgeMap = new ConcurrentHashMap<>();
     private volatile Map<String, String> parentByGatewayKeyMap;
 
-    private final List<Node> nodes = Collections.synchronizedList(new ArrayList<>());
     private static final Logger LOG = LoggerFactory.getLogger(EdgeService.class);
     private final NodeDao nodeDao;
     private final EdgeDao edgeDao;
@@ -143,13 +145,16 @@ public class EdgeService implements Runnable, HealthCheck {
         this.initialDelayL =  Long.parseLong(Objects.requireNonNull(initialDelay));
         this.delayL =  Long.parseLong(Objects.requireNonNull(delay));
     }
+    public Set<String> getLocations() {
+        return new HashSet<>(this.locations);
+    }
 
     public Set<String> getEdges(TopologyProtocol protocol, String label) {
         return edgeMap.get(protocol).get(label);
     }
 
     public Set<String> getGateways() {
-        return new HashSet<>(nodeLabelToGatewayMap.values());
+        return new HashSet<>(gatewayToChildMap.keySet());
     }
 
     public Map<String, String> getGatewayToGatewayLabelMap() {
@@ -203,14 +208,14 @@ public class EdgeService implements Runnable, HealthCheck {
         return parent;
     }
 
-    public Map<String, String> runLabelToGatewayLabelMap() {
-        final Map<String, String> map = new HashMap<>();
-        for (Map.Entry<String,String> entry: nodeLabelToGatewayMap.entrySet()) {
-            if (gatewayToGatewayLabelMap.containsKey(entry.getValue())) {
-                map.put(entry.getKey(), gatewayToGatewayLabelMap.get(entry.getValue()));
+
+    public Map<String, Set<String>> populateGatewayLabelToSetLabelMap() {
+        final Map<String, Set<String>> map = new HashMap<>();
+        for (Map.Entry<String,Set<String>> entry: gatewayToChildMap.entrySet()) {
+            if (gatewayToGatewayLabelMap.containsKey(entry.getKey())) {
+                map.put(gatewayToGatewayLabelMap.get(entry.getKey()), entry.getValue());
             }
         }
-        LOG.info("run: nodeGatewayMap: {}", map);
         return map;
     }
 
@@ -219,32 +224,46 @@ public class EdgeService implements Runnable, HealthCheck {
         this.nodes.clear();
         this.nodes.addAll(nodeDao.getNodes());
 
-        this.nodeLabelToGatewayMap.clear();
-        this.nodeLabelToGatewayMap.putAll(runNodeLabelToGatewayMap(this.nodes));
+        LOG.info("run: nodes size: {}", nodes.size());
+
+        this.gatewayToChildMap.clear();
+        this.gatewayToChildMap.putAll(populateGatewayMap(this.nodes));
+        LOG.info("run: gatewayToChildMap size: {}", gatewayToChildMap.size());
+
+        locations.clear();
+        locations.addAll(populateLocations(nodes));
+        LOG.info("run: locations size: {}", locations.size());
 
         gatewayToGatewayLabelMap.clear();
-        gatewayToGatewayLabelMap.putAll(runGatewayToGatewayLabelMap(nodeDao.getDefaultLocationName(),new HashSet<>(nodeLabelToGatewayMap.values())));
-        LOG.debug("run: mappingGatewayIpToGatewayNodeLabel: {}", gatewayToGatewayLabelMap);
+        gatewayToGatewayLabelMap.putAll(populateGatewayToGatewayLabelMap(this.locations, new HashSet<String>(gatewayToChildMap.keySet())));
+        LOG.info("run: gatewayToGatewayLabelMap: {}", gatewayToGatewayLabelMap.size());
 
-        edgeMap.put(TopologyProtocol.LLDP, runEdgeMap(edgeDao.getEdges(TopologyProtocol.LLDP)));
-        LOG.debug("run: edge lldp map size: {}", edgeMap.get(TopologyProtocol.LLDP).size() );
+        Set<TopologyEdge> lldpEdges = edgeDao.getEdges(TopologyProtocol.LLDP);
+        LOG.info("run: lldpEdges size: {}", lldpEdges.size());
+
+        Map<String, Set<String>> lldpEdgeMap = populateEdgeMap(lldpEdges);
+        LOG.info("run: lldpEdgeMap size: {}", lldpEdgeMap.size());
+        edgeMap.remove(TopologyProtocol.LLDP);
+        edgeMap.put(TopologyProtocol.LLDP, lldpEdgeMap);
+
+        Map<String, Set<String>> gatewayMap = populateGatewayLabelToSetLabelMap();
+        LOG.info("run: gatewayMap size: {}", gatewayMap.size());
         Map<String, String> map =
-                runParentDiscovery(
-                    edgeMap.get(TopologyProtocol.LLDP),
-                    runLabelToGatewayLabelMap());
-        LOG.info("run: lldp parent map size: {}", map.size());
+                runDiscovery(
+                    lldpEdgeMap,
+                    gatewayMap
+                );
         this.parentByGatewayKeyMap.clear();
         this.parentByGatewayKeyMap.putAll(map);
-
-        LOG.info("run: parentMap: {}", this.parentByGatewayKeyMap.size());
+        LOG.info("run: parentByGatewayKeyMap {}", this.parentByGatewayKeyMap.size());
     }
 
-    public Set<String> getLocations() {
-        return this.nodes.stream().map(Node::getLocation).collect(Collectors.toSet());
+    public Set<String> populateLocations(List<Node> nodes) {
+        return nodes.stream().map(Node::getLocation).collect(Collectors.toSet());
     }
 
-    public Map<String, String> runNodeLabelToGatewayMap(List<Node> nodes) {
-        Map<String, String> map = new HashMap<>();
+    public Map<String, Set<String>> populateGatewayMap(List<Node> nodes) {
+        Map<String, Set<String>> map = new HashMap<>();
         nodes.forEach(node -> {
             LOG.debug("run: parsing: label: {}, location: {}", node.getLabel(), node.getLocation());
             String gatewayIp = node.getMetaData().stream()
@@ -253,21 +272,31 @@ public class EdgeService implements Runnable, HealthCheck {
                     .findFirst()
                     .orElse(null);
             if (gatewayIp != null) {
-                LOG.debug("run: found: {}", gatewayIp);
-                map.put(node.getLabel(), gatewayIp);
+                LOG.debug("run: found: {} for gateway: {}", node.getLabel(), gatewayIp);
+                map.computeIfAbsent(gatewayIp, k -> new HashSet<>()).add(node.getLabel());
             }
         });
-        LOG.debug("run: mappingNodeLabelToGateway size: {}", map.size());
+        LOG.debug("run: gateway map: {}", map);
         return map;
     }
 
-    public Map<String, String> runGatewayToGatewayLabelMap(String location, Set<String> gateways) {
-        return gateways
-                .stream()
-                .collect(Collectors.toMap(gateway -> gateway,gateway ->runGatewayToGatewayLabel(location, gateway)));
+    public Map<String, String> populateGatewayToGatewayLabelMap(Set<String> locations, Set<String> gateways) {
+        Map<String, String> map = new HashMap<>();
+  G:      for (String gateway: gateways) {
+            for (String location: locations) {
+                String gwLabel = findGatewayToGatewayLabel(location, gateway);
+                if (gwLabel != null) {
+                    map.put(gateway, gwLabel);
+                    LOG.info("run: gateway: {}, -> label: {}", gateway, gwLabel);
+                    continue G;
+                }
+            }
+            LOG.info("run: gateway: {}, -> no node found", gateway);
+        }
+        return map;
     }
 
-    public String runGatewayToGatewayLabel(String onmsLocation, String gateway) {
+    public String findGatewayToGatewayLabel(String onmsLocation, String gateway) {
         LOG.debug("run: try to get label for gateway: {} and location: {}", gateway, onmsLocation);
         InetAddress gwIp;
         try {
@@ -279,8 +308,7 @@ public class EdgeService implements Runnable, HealthCheck {
 
         LOG.debug("run: try to get label for location: {}", onmsLocation );
 
-        Integer nodeId = interfaceToNodeCache.getFirstNodeId(onmsLocation, gwIp).orElse(0);
-        LOG.debug("run: get NodeId: {}", nodeId );
+        Integer nodeId = interfaceToNodeCache.getFirstNodeId(onmsLocation, gwIp).orElse(-1);
         if (nodeId > 0) {
             Node node = nodeDao.getNodeById(nodeId);
             LOG.debug("run: got Node: {}, FS {}", node.getLabel(), node.getForeignSource());
@@ -290,10 +318,11 @@ public class EdgeService implements Runnable, HealthCheck {
                 return node.getLabel();
             }
         }
+        LOG.debug("run: no valid NodeId {}, found for: {}: on location: {}", nodeId, gateway,onmsLocation );
         return null;
     }
 
-    public Map<String, Set<String>> runEdgeMap(Set<TopologyEdge> edges) {
+    public Map<String, Set<String>> populateEdgeMap(Set<TopologyEdge> edges) {
         EdgeService.EdgeServiceVisitor visitor = new EdgeServiceVisitor();
         final Map<String, Set<String>> map = new HashMap<>();
         edges.forEach(edge -> {
@@ -319,9 +348,9 @@ public class EdgeService implements Runnable, HealthCheck {
     //alternate start from the node ->
 
 
-    protected Map<String,String> runParentDiscovery(
-            final Map<String,Set<String>>edgeMap,
-            final Map<String,String> nodeGatewayMap
+    protected Map<String,String> runDiscovery(
+                final Map<String,Set<String>>edgeMap,
+                final Map<String,Set<String>>gatewayMap
             ) {
         if (edgeMap == null) {
             LOG.warn("run: edgeMap is null");
@@ -333,58 +362,58 @@ public class EdgeService implements Runnable, HealthCheck {
         }
         LOG.debug("run: edgeMap: {}", edgeMap);
 
-        if (nodeGatewayMap == null) {
-            LOG.warn("run: nodeGatewayMap is null");
+        if (gatewayMap == null) {
+            LOG.warn("run: gatewayMap is null");
             return new HashMap<>();
         }
-        if (nodeGatewayMap.isEmpty()) {
-            LOG.warn("run: nodeGatewayMap is empty");
+        if (gatewayMap.isEmpty()) {
+            LOG.warn("run: gatewayMap is empty");
             return new HashMap<>();
         }
-        LOG.debug("run: nodeGatewayMap: {}", nodeGatewayMap);
 
-        Map<String,String> map = new HashMap<>();
+        final Map<String,String> map = new HashMap<>();
 
-        for (String child: nodeGatewayMap.keySet()) {
-            String gateway = nodeGatewayMap.get(child);
-            LOG.debug("run: parsing {}: with gateway: {}", child, gateway);
+        for (String gateway: gatewayMap.keySet()) {
             if (!edgeMap.containsKey(gateway)) {
                 LOG.debug("run: no edges for gateway: {}", gateway);
                 continue;
             }
+            Set<String> children = gatewayMap.get(gateway);
+            LOG.debug("run: parsing {}: with children: {}", gateway, children);
             int i=0;
-            if (!edgeMap.containsKey(child)) {
-                LOG.debug("run: no edges found for {}", child);
-                continue;
-            }
             Set<String> parents = new HashSet<>(List.of(gateway));
             final Set<String> parsed = new HashSet<>();
-            while (!parents.isEmpty() &&!map.containsKey(child) && i< maxIteration) {
+            while (!parents.isEmpty() && !children.isEmpty()  && i< maxIteration) {
                 LOG.debug("run: iteration {}: checking if children of: {}", i,parents);
-                parents = checkParent(parsed, map, edgeMap,gateway, child, parents, nodeGatewayMap);
+                parents = checkParent(parsed, map, edgeMap, children, parents);
                 i++;
             }
         }
         return map;
     }
 
-    private Set<String> checkParent(final Set<String> parsed, final Map<String, String> map, final Map<String,Set<String>>linkMap , String gateway, String child, Set<String> parents, Map<String,String> nodeGatewayMap) {
-        final Set<String> children = new HashSet<>();
-        parents.stream().filter(l -> !parsed.contains(l))
+    private Set<String> checkParent(final Set<String> parsed, final Map<String, String> map, final Map<String,Set<String>>edgeMap , Set<String> children, Set<String> parents) {
+        final Set<String> downlevel = new HashSet<>();
+        parents
                 .forEach(level -> {
                     parsed.add(level);
-                    LOG.debug("run: parsing level: {}", level);
-                    if (linkMap.containsKey(level)) {
-                        children.addAll(linkMap.get(level));
+                    LOG.debug("run: parsing: {}", level);
+                    if (edgeMap.containsKey(level)) {
+                        downlevel.addAll(edgeMap.get(level));
                     }
-                    if (linkMap.get(level).contains(child)) {
-                        LOG.debug("run: child: {}: found parent: {}", child,level);
+                    Set<String> levelEdges = new HashSet<>(edgeMap.get(level));
+                    levelEdges.retainAll(children);
+                    for (String child: levelEdges) {
+                        LOG.debug("run: {} found child: {}", level, child);
                         map.put(child, level);
                     }
+                    children.removeAll(levelEdges);
                 });
         LOG.debug("run: parsed: {}", parsed);
         LOG.debug("run: children: {}", children);
-        return children;
+        downlevel.removeAll(parsed);
+        LOG.debug("run: parents: {}", downlevel);
+        return downlevel;
     }
 
     @Override

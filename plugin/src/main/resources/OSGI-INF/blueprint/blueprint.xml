@@ -11,7 +11,7 @@
             <cm:property name="filter" value="MinnovoTest" />
             <cm:property name="service.initial.delay" value="5000" />
             <cm:property name="service.delay" value="3600000" />
-            <cm:property name="service.iteration" value="20" />
+            <cm:property name="service.iteration" value="10" />
             <cm:property name="service.excluded.fs" value="NODO" />
             <cm:property name="metadata.context" value="requisition" />
             <cm:property name="metadata.parent.key" value="parent" />

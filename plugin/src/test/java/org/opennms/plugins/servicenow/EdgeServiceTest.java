@@ -109,18 +109,37 @@ public class EdgeServiceTest {
                 .collect(Collectors.toSet());
     }
 
-    private static Map<String, String> getGatewayMap() {
-        Map<String, String> gatewayMap = new HashMap<>();
-        gatewayMap.put("h1","gw1");
-        gatewayMap.put("h2","gw1");
-        gatewayMap.put("h3","gw1");
-        gatewayMap.put("h12","gw1");
-        gatewayMap.put("h13","gw1");
-        gatewayMap.put("h131","gw1");
-        gatewayMap.put("h132","gw1");
-        gatewayMap.put("h22","gw1");
-        gatewayMap.put("h33","gw1");
+    private static Map<String, Set<String>> getGatewayMap() {
+        Map<String, Set<String>> gatewayMap = new HashMap<>();
+        gatewayMap.put("gw1", new HashSet<>());
+        gatewayMap.get("gw1").add("h1");
+        gatewayMap.get("gw1").add("h2");
+        gatewayMap.get("gw1").add("h3");
+        gatewayMap.get("gw1").add("h4");
+        gatewayMap.get("gw1").add("h5");
+        gatewayMap.get("gw1").add("h12");
+        gatewayMap.get("gw1").add("h13");
+        gatewayMap.get("gw1").add("h22");
+        gatewayMap.get("gw1").add("h33");
+        gatewayMap.get("gw1").add("h131");
+        gatewayMap.get("gw1").add("h132");
         return gatewayMap;
+    }
+
+    private static Map<String, Set<String>> getEdgeMapWithoutSw() {
+        Map<String, Set<String>> edgeMap = new HashMap<>();
+        edgeMap.put("gw1", new HashSet<>(List.of("h1", "h2", "h3")));
+        edgeMap.put("h1", new HashSet<>(List.of("gw1", "h12", "h13")));
+        edgeMap.put("h2", new HashSet<>(List.of("gw1", "h22")));
+        edgeMap.put("h3", new HashSet<>(List.of("gw1", "h33")));
+        edgeMap.put("h12", new HashSet<>(List.of("h1")));
+        edgeMap.put("h13", new HashSet<>(List.of("h1","h131","h132")));
+        edgeMap.put("h22", new HashSet<>(List.of("h2")));
+        edgeMap.put("h33", new HashSet<>(List.of("h3")));
+        edgeMap.put("h131", new HashSet<>(List.of("h13")));
+        edgeMap.put("h132", new HashSet<>(List.of("h13")));
+
+        return edgeMap;
     }
 
     private static Map<String, Set<String>> getEdgeMap() {
@@ -141,6 +160,26 @@ public class EdgeServiceTest {
         return edgeMap;
     }
 
+    private static Map<String, Set<String>> getEdgeMapWithOrphans() {
+        Map<String, Set<String>> edgeMap = new HashMap<>();
+        edgeMap.put("gw1", new HashSet<>(List.of("sw", "gw2")));
+        edgeMap.put("gw2", new HashSet<>(List.of("sw", "gw1")));
+        edgeMap.put("sw", new HashSet<>(List.of("gw1","gw2","h1", "h2", "h3")));
+        edgeMap.put("h1", new HashSet<>(List.of("sw", "h12", "h13")));
+        edgeMap.put("h2", new HashSet<>(List.of("sw", "h22")));
+        edgeMap.put("h3", new HashSet<>(List.of("sw", "h33")));
+        edgeMap.put("h12", new HashSet<>(List.of("h1")));
+        edgeMap.put("h13", new HashSet<>(List.of("h1","h131","h132")));
+        edgeMap.put("h22", new HashSet<>(List.of("h2")));
+        edgeMap.put("h33", new HashSet<>(List.of("h3")));
+        edgeMap.put("h131", new HashSet<>(List.of("h13")));
+        edgeMap.put("h132", new HashSet<>(List.of("h13")));
+        edgeMap.put("h4", new HashSet<>(List.of("h5")));
+        edgeMap.put("h5", new HashSet<>(List.of("h4")));
+
+        return edgeMap;
+    }
+
     private static Node getSwitch() throws UnknownHostException{
         return ImmutableNode
                 .newBuilder()
@@ -149,12 +188,6 @@ public class EdgeServiceTest {
                 .setForeignSource("EdgeServiceTest")
                 .setLocation("TEST")
                 .setId(10)
-                .addMetaData(ImmutableMetaData
-                        .newBuilder()
-                        .setContext("provision")
-                        .setKey("gateway")
-                        .setValue("10.10.10.254")
-                        .build())
                 .addIpInterface(ImmutableIpInterface
                         .newBuilder()
                         .setIpAddress(InetAddress.getByName("10.10.10.10"))
@@ -218,7 +251,50 @@ public class EdgeServiceTest {
     public void findParentTest() throws UnknownHostException {
         EdgeService edgeService = getEdgeServiceMock();
         Map<String, String> parentMap =
-                edgeService.runParentDiscovery(getEdgeMap(), getGatewayMap());
+                edgeService.runDiscovery(getEdgeMap(), getGatewayMap());
+
+        System.out.println(parentMap);
+        Assert.assertEquals(9, parentMap.size());
+        Assert.assertEquals("sw", parentMap.get("h1"));
+        Assert.assertEquals("sw", parentMap.get("h2"));
+        Assert.assertEquals("sw", parentMap.get("h3"));
+        Assert.assertEquals("h1", parentMap.get("h12"));
+        Assert.assertEquals("h1", parentMap.get("h13"));
+        Assert.assertEquals("h2", parentMap.get("h22"));
+        Assert.assertEquals("h3", parentMap.get("h33"));
+        Assert.assertEquals("h13", parentMap.get("h131"));
+        Assert.assertEquals("h13", parentMap.get("h132"));
+
+    }
+
+    /**
+     * Verifies that the object is serialized to JSON as expected.
+     */
+    @Test
+    public void findParentTestWithoutSw() throws UnknownHostException {
+        EdgeService edgeService = getEdgeServiceMock();
+        Map<String, String> parentMap =
+                edgeService.runDiscovery(getEdgeMapWithoutSw(), getGatewayMap());
+
+        System.out.println(parentMap);
+        Assert.assertEquals(9, parentMap.size());
+        Assert.assertEquals("gw1", parentMap.get("h1"));
+        Assert.assertEquals("gw1", parentMap.get("h2"));
+        Assert.assertEquals("gw1", parentMap.get("h3"));
+        Assert.assertEquals("h1", parentMap.get("h12"));
+        Assert.assertEquals("h1", parentMap.get("h13"));
+        Assert.assertEquals("h2", parentMap.get("h22"));
+        Assert.assertEquals("h3", parentMap.get("h33"));
+        Assert.assertEquals("h13", parentMap.get("h131"));
+        Assert.assertEquals("h13", parentMap.get("h132"));
+
+    }
+
+    @Test
+    public void findParentTestWithOrphans() throws UnknownHostException {
+        EdgeService edgeService = getEdgeServiceMock();
+        Map<String, String> parentMap =
+                edgeService.runDiscovery(getEdgeMapWithOrphans(), getGatewayMap());
 
         System.out.println(parentMap);
         Assert.assertEquals(9, parentMap.size());
@@ -240,25 +316,26 @@ public class EdgeServiceTest {
         EdgeService edgeService = getEdgeServiceMock();
         List<Node> nodes = getNodes();
         Assert.assertEquals(11, nodes.size());
-        Map<String, String> nodeGatewayMap = edgeService.runNodeLabelToGatewayMap(nodes);
-        System.out.println(nodeGatewayMap);
-        Assert.assertEquals(10, nodeGatewayMap.size());
-        Assert.assertFalse(nodeGatewayMap.containsKey("10.10.10.254"));
-        for (String value : new HashSet<>(nodeGatewayMap.values()))
-            Assert.assertEquals("10.10.10.254", value);
+        Map<String, Set<String>> gatewayMap = edgeService.populateGatewayMap(nodes);
+        System.out.println(gatewayMap);
+        Assert.assertEquals(1, gatewayMap.size());
+        Assert.assertTrue(gatewayMap.containsKey("10.10.10.254"));
+        Set<String> labels = gatewayMap.get("10.10.10.254");
+        Assert.assertEquals(9, labels.size());
+        System.out.println(nodes);
     }
 
     @Test
     public void testGetEdgeMap() throws UnknownHostException {
         EdgeService edgeService = getEdgeServiceMock();
         Set<TopologyEdge> edges = getEdges();
-        final Map<String, Set<String>> edgeMap = edgeService.runEdgeMap(edges);
+        final Map<String, Set<String>> edgeMap = edgeService.populateEdgeMap(edges);
         Assert.assertEquals(11, edgeMap.size());
         System.out.println(edgeMap);
         final Set<String> children = edgeMap.get(getSwitch().getLabel());
         Assert.assertEquals(10, children.size());
 
-        final Map<String, Set<String>> map = edgeService.runEdgeMap(new HashSet<>());
+        final Map<String, Set<String>> map = edgeService.populateEdgeMap(new HashSet<>());
         System.out.println(map);
         Assert.assertEquals(0, map.size());
     }
