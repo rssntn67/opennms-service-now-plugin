@@ -111,24 +111,26 @@ public class EdgeServiceTest {
 
     private static Map<String, String> getGatewayMap() {
         Map<String, String> gatewayMap = new HashMap<>();
-        gatewayMap.put("h1","gw");
-        gatewayMap.put("h2","gw");
-        gatewayMap.put("h3","gw");
-        gatewayMap.put("h12","gw");
-        gatewayMap.put("h13","gw");
-        gatewayMap.put("h131","gw");
-        gatewayMap.put("h132","gw");
-        gatewayMap.put("h22","gw");
-        gatewayMap.put("h33","gw");
+        gatewayMap.put("h1","gw1");
+        gatewayMap.put("h2","gw1");
+        gatewayMap.put("h3","gw1");
+        gatewayMap.put("h12","gw1");
+        gatewayMap.put("h13","gw1");
+        gatewayMap.put("h131","gw1");
+        gatewayMap.put("h132","gw1");
+        gatewayMap.put("h22","gw1");
+        gatewayMap.put("h33","gw1");
         return gatewayMap;
     }
 
     private static Map<String, Set<String>> getEdgeMap() {
         Map<String, Set<String>> edgeMap = new HashMap<>();
-        edgeMap.put("gw", new HashSet<>(List.of("h1", "h2", "h3")));
-        edgeMap.put("h1", new HashSet<>(List.of("gw", "h12", "h13")));
-        edgeMap.put("h2", new HashSet<>(List.of("gw", "h22")));
-        edgeMap.put("h3", new HashSet<>(List.of("gw", "h33")));
+        edgeMap.put("gw1", new HashSet<>(List.of("sw", "gw2")));
+        edgeMap.put("gw2", new HashSet<>(List.of("sw", "gw1")));
+        edgeMap.put("sw", new HashSet<>(List.of("gw1","gw2","h1", "h2", "h3")));
+        edgeMap.put("h1", new HashSet<>(List.of("sw", "h12", "h13")));
+        edgeMap.put("h2", new HashSet<>(List.of("sw", "h22")));
+        edgeMap.put("h3", new HashSet<>(List.of("sw", "h33")));
         edgeMap.put("h12", new HashSet<>(List.of("h1")));
         edgeMap.put("h13", new HashSet<>(List.of("h1","h131","h132")));
         edgeMap.put("h22", new HashSet<>(List.of("h2")));
@@ -220,9 +222,9 @@ public class EdgeServiceTest {
 
         System.out.println(parentMap);
         Assert.assertEquals(9, parentMap.size());
-        Assert.assertEquals("gw", parentMap.get("h1"));
-        Assert.assertEquals("gw", parentMap.get("h2"));
-        Assert.assertEquals("gw", parentMap.get("h3"));
+        Assert.assertEquals("sw", parentMap.get("h1"));
+        Assert.assertEquals("sw", parentMap.get("h2"));
+        Assert.assertEquals("sw", parentMap.get("h3"));
         Assert.assertEquals("h1", parentMap.get("h12"));
         Assert.assertEquals("h1", parentMap.get("h13"));
         Assert.assertEquals("h2", parentMap.get("h22"));

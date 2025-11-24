@@ -109,16 +109,15 @@ public class EdgeService implements Runnable, HealthCheck {
     }
 
     private void initScheduler() {
-        try (ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor()) {
-            scheduledFuture =
-                    scheduledExecutorService
-                            .scheduleWithFixedDelay(
-                                    this,
-                                    initialDelayL,
-                                    delayL,
-                                    TimeUnit.MILLISECONDS
+        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        scheduledFuture =
+                scheduledExecutorService
+                        .scheduleWithFixedDelay(
+                                this,
+                                initialDelayL,
+                                delayL,
+                                TimeUnit.MILLISECONDS
                             );
-        }
         LOG.info("init: Scheduler initialized, parentMap: {}", this.parentByGatewayKeyMap.size());
     }
 
@@ -211,7 +210,7 @@ public class EdgeService implements Runnable, HealthCheck {
                 map.put(entry.getKey(), gatewayToGatewayLabelMap.get(entry.getValue()));
             }
         }
-        LOG.debug("run: nodeGatewayMap: {}", map);
+        LOG.info("run: nodeGatewayMap: {}", map);
         return map;
     }
 
@@ -319,6 +318,7 @@ public class EdgeService implements Runnable, HealthCheck {
 
     //alternate start from the node ->
 
+
     protected Map<String,String> runParentDiscovery(
             final Map<String,Set<String>>edgeMap,
             final Map<String,String> nodeGatewayMap
@@ -331,6 +331,7 @@ public class EdgeService implements Runnable, HealthCheck {
             LOG.warn("run: edgeMap is empty");
             return new HashMap<>();
         }
+        LOG.debug("run: edgeMap: {}", edgeMap);
 
         if (nodeGatewayMap == null) {
             LOG.warn("run: nodeGatewayMap is null");
@@ -340,38 +341,49 @@ public class EdgeService implements Runnable, HealthCheck {
             LOG.warn("run: nodeGatewayMap is empty");
             return new HashMap<>();
         }
+        LOG.debug("run: nodeGatewayMap: {}", nodeGatewayMap);
 
         Map<String,String> map = new HashMap<>();
 
         for (String child: nodeGatewayMap.keySet()) {
             String gateway = nodeGatewayMap.get(child);
             LOG.debug("run: parsing {}: with gateway: {}", child, gateway);
+            if (!edgeMap.containsKey(gateway)) {
+                LOG.debug("run: no edges for gateway: {}", gateway);
+                continue;
+            }
             int i=0;
             if (!edgeMap.containsKey(child)) {
                 LOG.debug("run: no edges found for {}", child);
                 continue;
             }
             Set<String> parents = new HashSet<>(List.of(gateway));
+            final Set<String> parsed = new HashSet<>();
             while (!parents.isEmpty() &&!map.containsKey(child) && i< maxIteration) {
                 LOG.debug("run: iteration {}: checking if children of: {}", i,parents);
-                parents = checkParent(map, edgeMap,gateway, child, parents, nodeGatewayMap);
+                parents = checkParent(parsed, map, edgeMap,gateway, child, parents, nodeGatewayMap);
                 i++;
             }
         }
         return map;
     }
 
-    private Set<String> checkParent(final Map<String, String> map, final Map<String,Set<String>>linkMap , String gateway, String child, Set<String> parents, Map<String,String> nodeGatewayMap) {
+    private Set<String> checkParent(final Set<String> parsed, final Map<String, String> map, final Map<String,Set<String>>linkMap , String gateway, String child, Set<String> parents, Map<String,String> nodeGatewayMap) {
         final Set<String> children = new HashSet<>();
-        parents.stream()
-                .filter(level -> level.equals(gateway) || gateway.equals(nodeGatewayMap.get(level)))
+        parents.stream().filter(l -> !parsed.contains(l))
                 .forEach(level -> {
-                    children.addAll(linkMap.get(level));
+                    parsed.add(level);
+                    LOG.debug("run: parsing level: {}", level);
+                    if (linkMap.containsKey(level)) {
+                        children.addAll(linkMap.get(level));
+                    }
                     if (linkMap.get(level).contains(child)) {
                         LOG.debug("run: child: {}: found parent: {}", child,level);
                         map.put(child, level);
                     }
                 });
+        LOG.debug("run: parsed: {}", parsed);
+        LOG.debug("run: children: {}", children);
         return children;
     }
 
