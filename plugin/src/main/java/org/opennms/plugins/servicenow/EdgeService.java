@@ -67,7 +67,10 @@ public class EdgeService implements Runnable, HealthCheck {
 
         @Override
         public void visitTarget(TopologySegment segment) {
-            LOG.debug("EdgeServiceVisitor:visitTarget:TopologySegment {}", segment);
+            LOG.debug("EdgeServiceVisitor:visitTarget:TopologySegment {}", segment.getSegmentCriteria());
+            for (String entry: segment.getTooltipText().split(",")) {
+                LOG.debug("EdgeServiceVisitor:visitTarget:TopologySegment {}", entry);
+            }
         }
 
         public void clean() {
@@ -256,6 +259,10 @@ public class EdgeService implements Runnable, HealthCheck {
                 );
         this.parentByGatewayKeyMap.clear();
         this.parentByGatewayKeyMap.putAll(map);
+
+        edgeDao.getEdges(TopologyProtocol.BRIDGE);
+
+
         LOG.info("run: parentByGatewayKeyMap {}", this.parentByGatewayKeyMap.size());
     }
 
