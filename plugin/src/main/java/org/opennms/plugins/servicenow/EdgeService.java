@@ -262,6 +262,14 @@ public class EdgeService implements Runnable, HealthCheck {
 
         edgeDao.getEdges(TopologyProtocol.BRIDGE);
 
+        for (Map.Entry<String, Set<String>> entry: gatewayMap.entrySet()) {
+            for (String label: entry.getValue()) {
+                if (this.getParentByGatewayKeyMap().containsKey(label)) {
+                    continue;
+                }
+                this.parentByGatewayKeyMap.put(label, entry.getKey());
+            }
+        }
 
         LOG.info("run: parentByGatewayKeyMap {}", this.parentByGatewayKeyMap.size());
     }
