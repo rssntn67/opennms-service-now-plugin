@@ -39,43 +39,47 @@ public class EdgeService implements Runnable, HealthCheck {
     protected class EdgeServiceVisitor implements TopologyEdge.EndpointVisitor {
         String source;
         String target;
+        String id;
+
+        public void setId(String id) {
+            this.id = id;
+        }
 
         @Override
         public void visitSource(Node node) {
-            LOG.debug("EdgeServiceVisitor:visitSource:Node {}", node);
+            LOG.info("->{}:visitSourceNode {}",id, node);
             source = nodeDao.getNodeByForeignSourceAndForeignId(node.getForeignSource(), node.getForeignId()).getLabel();
         }
 
         @Override
         public void visitTarget(Node node) {
-            LOG.debug("EdgeServiceVisitor:visitTarget:Node {}", node);
+            LOG.info("->{}:visitTarget:Node {}",id, node);
             target = nodeDao.getNodeByForeignSourceAndForeignId(node.getForeignSource(), node.getForeignId()).getLabel();
         }
 
         @Override
         public void visitSource(TopologyPort port) {
-            LOG.debug("EdgeServiceVisitor:visitSource:TopologyPort {}", port);
+            LOG.info("->{}:visitSource:TopologyPort {}",id, port);
             source = nodeDao.getNodeByForeignSourceAndForeignId(port.getNodeCriteria().getForeignSource(),port.getNodeCriteria().getForeignId()).getLabel();
         }
 
 
         @Override
         public void visitTarget(TopologyPort port) {
-            LOG.debug("EdgeServiceVisitor:visitTarget:TopologyPort {}", port);
+            LOG.info("->{}:visitTarget:TopologyPort {}",id, port);
             target = nodeDao.getNodeByForeignSourceAndForeignId(port.getNodeCriteria().getForeignSource(),port.getNodeCriteria().getForeignId()).getLabel();
         }
 
         @Override
         public void visitTarget(TopologySegment segment) {
-            LOG.debug("EdgeServiceVisitor:visitTarget:TopologySegment {}", segment.getSegmentCriteria());
-            for (String entry: segment.getTooltipText().split(",")) {
-                LOG.debug("EdgeServiceVisitor:visitTarget:TopologySegment {}", entry);
-            }
+            LOG.info("->{}:visitTarget:TopologySegment:Criteria-> {}",id, segment.getSegmentCriteria());
+            LOG.info("->{}:visitTarget:TopologySegment:tooltip-> {}",id, segment.getTooltipText());
         }
 
         public void clean() {
             source=null;
             target=null;
+            id=null;
         }
 
     }
@@ -247,34 +251,43 @@ public class EdgeService implements Runnable, HealthCheck {
         Map<String, Set<String>> gatewayMap = populateGatewayLabelToSetLabelMap();
         LOG.info("run: gatewayMap size: {}", gatewayMap.size());
 
+        //LLDP
         Set<TopologyEdge> lldpEdges = edgeDao.getEdges(TopologyProtocol.LLDP);
         LOG.info("run: lldpEdges size: {}", lldpEdges.size());
-
         Map<String, Set<String>> lldpEdgeMap = populateEdgeMap(lldpEdges);
         LOG.info("run: lldpEdgeMap size: {}", lldpEdgeMap.size());
         edgeMap.remove(TopologyProtocol.LLDP);
         edgeMap.put(TopologyProtocol.LLDP, lldpEdgeMap);
-
-        Map<String, String> map =
+        Map<String, String> lldpParentMap =
                 runDiscovery(
                     lldpEdgeMap,
                     gatewayMap
                 );
+        LOG.info("run: found lldp parent map of size: {}", lldpParentMap.size());
         this.parentByGatewayKeyMap.clear();
-        this.parentByGatewayKeyMap.putAll(map);
-
-        edgeDao.getEdges(TopologyProtocol.BRIDGE);
-
-        for (Map.Entry<String, Set<String>> entry: gatewayMap.entrySet()) {
-            for (String label: entry.getValue()) {
-                if (this.getParentByGatewayKeyMap().containsKey(label)) {
-                    continue;
-                }
-                this.parentByGatewayKeyMap.put(label, entry.getKey());
-            }
-        }
-
+        lldpParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
         LOG.info("run: parentByGatewayKeyMap {}", this.parentByGatewayKeyMap.size());
+
+        Set<TopologyEdge> bridgeEdges = edgeDao.getEdges(TopologyProtocol.BRIDGE);
+        LOG.info("run: bridgeEdges size: {}", lldpEdges.size());
+        Map<String, Set<String>> bridgeEdgeMap = populateEdgeMap(bridgeEdges);
+        LOG.info("run: bridgeEdgeMap size: {}", bridgeEdgeMap.size());
+        edgeMap.remove(TopologyProtocol.BRIDGE);
+        edgeMap.put(TopologyProtocol.BRIDGE, lldpEdgeMap);
+        Map<String, String> bridgeParentMap =
+                runDiscovery(
+                        bridgeEdgeMap,
+                        gatewayMap
+                );
+        LOG.info("run: found bridge parent map of size: {}", bridgeParentMap.size());
+        bridgeParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
+        LOG.info("run: parentByGatewayKeyMap {}", this.parentByGatewayKeyMap.size());
+
+
+        gatewayMap.forEach((parent, set) -> {
+            set.forEach(label -> this.parentByGatewayKeyMap.putIfAbsent(label,parent));
+        });
+        LOG.info("run: including orphans parentByGatewayKeyMap {}", this.parentByGatewayKeyMap.size());
     }
 
     public Set<String> populateLocations(List<Node> nodes) {
@@ -346,6 +359,7 @@ public class EdgeService implements Runnable, HealthCheck {
         final Map<String, Set<String>> map = new HashMap<>();
         edges.forEach(edge -> {
             visitor.clean();
+            visitor.setId(edge.getId());
             edge.visitEndpoints(visitor);
 
             if (visitor.source != null && visitor.target != null) {
