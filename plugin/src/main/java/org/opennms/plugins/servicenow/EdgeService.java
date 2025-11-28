@@ -153,7 +153,10 @@ public class EdgeService implements Runnable, HealthCheck {
     }
 
     public Set<String> getEdges(TopologyProtocol protocol, String label) {
-        return edgeMap.get(protocol).get(label);
+        if (edgeMap.get(protocol).containsKey(label)) {
+            return new HashSet<>(edgeMap.get(protocol).get(label));
+        }
+        return new HashSet<>();
     }
 
     public Set<String> getGateways() {
