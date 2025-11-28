@@ -34,6 +34,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
         this.filter = Objects.requireNonNull(filter);
         this.edgeService = Objects.requireNonNull(edgeservice);
+        LOG.info("init: filter: {}", this.filter);
     }
 
     @Override
