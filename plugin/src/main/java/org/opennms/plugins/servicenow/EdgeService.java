@@ -1,5 +1,6 @@
 package org.opennms.plugins.servicenow;
 
+import kotlin.Pair;
 import org.opennms.integration.api.v1.dao.EdgeDao;
 import org.opennms.integration.api.v1.dao.InterfaceToNodeCache;
 import org.opennms.integration.api.v1.dao.NodeDao;
@@ -20,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,6 +37,21 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class EdgeService implements Runnable, HealthCheck {
+
+    protected static Pair<Integer, Integer> getFromId(String id) throws RuntimeException {
+        if (!id.startsWith("s:")) {
+            throw new RuntimeException("Error: " + id + "not a Shared segment");
+        }
+        List<String> values = Arrays.stream(id.replace("s:", "").split("\\|")).toList();
+        String source = values.get(0);
+        Integer sourceId = Integer.parseInt(Arrays.stream(source.split(":")).toList().get(0));
+        String target = values.get(1);
+        if (target.startsWith("m:")) {
+            throw new RuntimeException("Error: " + id + " target has no identified nodes");
+        }
+        Integer targetId = Integer.parseInt(Arrays.stream(target.split(":")).toList().get(0));
+        return new Pair<>(sourceId, targetId);
+    }
 
     protected class EdgeServiceVisitor implements TopologyEdge.EndpointVisitor {
         String source;
@@ -73,7 +90,14 @@ public class EdgeService implements Runnable, HealthCheck {
         @Override
         public void visitTarget(TopologySegment segment) {
             LOG.info("->{}:visitTarget:TopologySegment:Criteria-> {}",id, segment.getSegmentCriteria());
-            LOG.info("->{}:visitTarget:TopologySegment:tooltip-> {}",id, segment.getTooltipText());
+            try {
+                Pair<Integer, Integer> pair = EdgeService.getFromId(id);
+                source = nodeDao.getNodeById(pair.getFirst()).getLabel();
+                target = nodeDao.getNodeById(pair.getSecond()).getLabel();
+            } catch (Exception e) {
+                LOG.info("->{}:visitTarget:TopologySegment: {}", id, e.getMessage());
+            }
+
         }
 
         public void clean() {
@@ -264,10 +288,22 @@ public class EdgeService implements Runnable, HealthCheck {
                     gatewayMap
                 );
         LOG.info("run: found lldp parent map of size: {}", lldpParentMap.size());
-        this.parentByGatewayKeyMap.clear();
-        lldpParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
-        LOG.info("run: parentByGatewayKeyMap {}", this.parentByGatewayKeyMap.size());
 
+        //CDP
+        Set<TopologyEdge> cdpEdges = edgeDao.getEdges(TopologyProtocol.CDP);
+        LOG.info("run: cdpEdges size: {}", cdpEdges.size());
+        Map<String, Set<String>> cdpEdgeMap = populateEdgeMap(cdpEdges);
+        LOG.info("run:cdpEdgeMap size: {}", lldpEdgeMap.size());
+        edgeMap.remove(TopologyProtocol.CDP);
+        edgeMap.put(TopologyProtocol.CDP, cdpEdgeMap);
+        Map<String, String> cdpParentMap =
+                runDiscovery(
+                        cdpEdgeMap,
+                        gatewayMap
+                );
+        LOG.info("run: found cdp parent map of size: {}", cdpParentMap.size());
+
+        //BRIDGE
         Set<TopologyEdge> bridgeEdges = edgeDao.getEdges(TopologyProtocol.BRIDGE);
         LOG.info("run: bridgeEdges size: {}", lldpEdges.size());
         Map<String, Set<String>> bridgeEdgeMap = populateEdgeMap(bridgeEdges);
@@ -280,14 +316,18 @@ public class EdgeService implements Runnable, HealthCheck {
                         gatewayMap
                 );
         LOG.info("run: found bridge parent map of size: {}", bridgeParentMap.size());
+
+        this.parentByGatewayKeyMap.clear();
+        lldpParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
+        LOG.info("run: added lldp: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
+        cdpParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
+        LOG.info("run: added cdp: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
         bridgeParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
-        LOG.info("run: parentByGatewayKeyMap {}", this.parentByGatewayKeyMap.size());
-
-
+        LOG.info("run: added bridge: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
         gatewayMap.forEach((parent, set) -> {
             set.forEach(label -> this.parentByGatewayKeyMap.putIfAbsent(label,parent));
         });
-        LOG.info("run: including orphans parentByGatewayKeyMap {}", this.parentByGatewayKeyMap.size());
+        LOG.info("run: added gateways: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
     }
 
     public Set<String> populateLocations(List<Node> nodes) {
@@ -369,17 +409,6 @@ public class EdgeService implements Runnable, HealthCheck {
         });
         return map;
     }
-
-    //Alternate way for finding parent
-    //for each gateway I found child
-    // -> the idea is that all the child are connected to gateway
-    // first step -> see the gateway edges.
-    // for each check if there is one of the node with this as gateway
-    // next step investigate the gateway->linksN.
-    // how many steps and in what direction? No more then 3. When you find the first client proceed.
-
-    //alternate start from the node ->
-
 
     protected Map<String,String> runDiscovery(
                 final Map<String,Set<String>>edgeMap,

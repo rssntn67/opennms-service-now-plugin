@@ -1,5 +1,6 @@
 package org.opennms.plugins.servicenow;
 
+import kotlin.Pair;
 import org.junit.Assert;
 import org.junit.Test;
 import org.opennms.integration.api.v1.dao.EdgeDao;
@@ -18,6 +19,7 @@ import org.opennms.integration.api.v1.model.immutables.ImmutableTopologyPort;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -74,7 +76,7 @@ public class EdgeServiceTest {
 
     private static TopologyEdge getEdge(Node parent, Node child) {
         return ImmutableTopologyEdge.newBuilder()
-                .setId("test"+parent.getId()+ child.getId())
+                .setId(parent.getId()+":1|" + child.getId()+":1")
                 .setProtocol(TopologyProtocol.LLDP)
                 .setSource(ImmutableTopologyPort.newBuilder()
                         .setId(parent.getForeignId())
@@ -308,6 +310,75 @@ public class EdgeServiceTest {
         Assert.assertEquals("h13", parentMap.get("h131"));
         Assert.assertEquals("h13", parentMap.get("h132"));
 
+    }
+
+        /*
+    Bridge Topology
+    This is and edge of the Shared Segment s:34929.
+    s:34929:4746|31431:visitTarget:TopologyPort ImmutableTopologyPort{id='31431', tooltipText='KWE0085A04_1XXVAPRILE CONTROLLO(CONTROLLO)(ifIndex:101)(ip:[10.60.24.83 ], mac:[0026f18bd640])', ifIndex=101, ifName='CONTROLLO', ifAddress='ip:[10.60.24.83 ], mac:[0026f18bd640]', nodeCriteria=ImmutableNodeCriteria{id=31431, foreignSource='Switch', foreignId='9194'}
+    this is a connection between node 34929 and node 31431.
+    So I have the target and the source must be get by the id:
+    s:34929:4746
+
+    Same here
+
+    s:34929:4746|30511:visitTarget:TopologyPort ImmutableTopologyPort{id='30511', tooltipText='KWE0085ARP_2XXVAprile CONTROLLO(CONTROLLO)(ifIndex:101)(ip:[10.60.24.85 ], mac:[001f28fc4640])', ifIndex=101, ifName='CONTROLLO', ifAddress='ip:[10.60.24.85 ], mac:[001f28fc4640]', nodeCriteria=ImmutableNodeCriteria{id=30511, foreignSource='Switch', foreignId='9196'}}
+    this is a connection between 34929 and 30511
+
+    s:34929:4746|m:34929:4746:visitTarget:TopologySegment:Criteria-> BRIDGE:p:m:34929:4746
+    this represents a bunch of mac. So s is for segment and m is for maclink
+
+    s:34929:4746|34929:4746:visitTarget:TopologyPort ImmutableTopologyPort{id='34929:4746', tooltipText='E0046L-ScXXVAPRILE-QFX ge-0/0/0(CS_E0085_PiazzaVenticinqueAprile8)(1.0 Gbps)(ifIndex:519)(bridge port 4746 vlan null)', ifIndex=519, ifName='ge-0/0/0', ifAddress='bridge port 4746 vlan null', nodeCriteria=ImmutableNodeCriteria{id=34929, foreignSource='Switch', foreignId='11270735459925'}}
+    this is the node itself.
+    Every shared segment is represented with his nei. the s:id is the top from bridge perspective.
+
+     */
+    /*
+    Bridge Topology
+    This is and edge of the Shared Segment s:34929.
+    s:34929:4746|31431:visitTarget:TopologyPort ImmutableTopologyPort{id='31431', tooltipText='KWE0085A04_1XXVAPRILE CONTROLLO(CONTROLLO)(ifIndex:101)(ip:[10.60.24.83 ], mac:[0026f18bd640])', ifIndex=101, ifName='CONTROLLO', ifAddress='ip:[10.60.24.83 ], mac:[0026f18bd640]', nodeCriteria=ImmutableNodeCriteria{id=31431, foreignSource='Switch', foreignId='9194'}
+    this is a connection between node 34929 and node 31431.
+    So I have the target and the source must be get by the id:
+    s:34929:4746
+
+    Same here
+
+    s:34929:4746|30511:visitTarget:TopologyPort ImmutableTopologyPort{id='30511', tooltipText='KWE0085ARP_2XXVAprile CONTROLLO(CONTROLLO)(ifIndex:101)(ip:[10.60.24.85 ], mac:[001f28fc4640])', ifIndex=101, ifName='CONTROLLO', ifAddress='ip:[10.60.24.85 ], mac:[001f28fc4640]', nodeCriteria=ImmutableNodeCriteria{id=30511, foreignSource='Switch', foreignId='9196'}}
+    this is a connection between 34929 and 30511
+
+    s:34929:4746|m:34929:4746:visitTarget:TopologySegment:Criteria-> BRIDGE:p:m:34929:4746
+    this represents a bunch of mac. So s is for segment and m is for maclink
+
+    s:34929:4746|34929:4746:visitTarget:TopologyPort ImmutableTopologyPort{id='34929:4746', tooltipText='E0046L-ScXXVAPRILE-QFX ge-0/0/0(CS_E0085_PiazzaVenticinqueAprile8)(1.0 Gbps)(ifIndex:519)(bridge port 4746 vlan null)', ifIndex=519, ifName='ge-0/0/0', ifAddress='bridge port 4746 vlan null', nodeCriteria=ImmutableNodeCriteria{id=34929, foreignSource='Switch', foreignId='11270735459925'}}
+    this is the node itself.
+    Every shared segment is represented with his nei. the s:id is the top from bridge perspective.
+
+     */
+
+    @Test
+    public void testGetNodeFromId() {
+        String id = "s:34929:4746|31431";
+        try {
+            Pair<Integer, Integer> pair = EdgeService.getFromId(id);
+            Integer sourceNodeId = pair.getFirst();
+            System.out.println(sourceNodeId);
+            Integer targetNodeId = pair.getSecond();
+            System.out.println(targetNodeId);
+            Assert.assertEquals(31431, targetNodeId.intValue());
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    @Test
+    public void testErrorNodeFromId() {
+        String id = "s:34929:4746|m:34929:4746";
+        try {
+            Pair<Integer, Integer> pair = EdgeService.getFromId(id);
+            Assert.fail();
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
     }
 
     @Test
