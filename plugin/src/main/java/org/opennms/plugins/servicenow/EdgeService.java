@@ -53,6 +53,18 @@ public class EdgeService implements Runnable, HealthCheck {
         return new Pair<>(sourceId, targetId);
     }
 
+    public Map<String, String> getParentByParentKeyMap() {
+        return this.nodes.stream()
+                .collect(HashMap::new,
+                        (map, n) -> {
+                            String parent = getParent(n);
+                            if (parent != null) {
+                                map.put(n.getLabel(), parent);
+                            }
+                        },
+                        HashMap::putAll);
+    }
+
     protected class EdgeServiceVisitor implements TopologyEdge.EndpointVisitor {
         String source;
         String target;

@@ -21,7 +21,7 @@ public class GetEdgeMapCommand implements Action {
     @Reference
     private EdgeService service;
 
-    @Argument(name = "protocol", description = "lldp or bridge", required = true)
+    @Argument(name = "protocol", description = "lldp or cdp or bridge", required = true)
     public String protocol = null;
 
     @Argument(index = 1, name = "label", description = "label of the asset", required = true)
@@ -38,6 +38,9 @@ public class GetEdgeMapCommand implements Action {
         switch (this.protocol) {
             case "lldp":
                 p= TopologyProtocol.LLDP;
+                break;
+            case "cdp":
+                p= TopologyProtocol.CDP;
                 break;
             case "bridge":
                 p=TopologyProtocol.BRIDGE;
