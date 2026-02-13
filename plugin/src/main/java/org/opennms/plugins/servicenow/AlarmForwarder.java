@@ -23,6 +23,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     private final ConnectionManager connectionManager;
     private final ApiClientProvider apiClientProvider;
     private final String filter;
+    private final boolean start = true;
 
     private final EdgeService edgeService;
 
@@ -38,32 +39,36 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
     @Override
     public void handleNewOrUpdatedAlarm(Alarm alarm) {
-        LOG.debug("handleNewOrUpdatedAlarm: parsing alarm with reduction key: {}", alarm.getReductionKey());
+        sendAlarm(alarm);
+    }
+
+    private void sendAlarm(Alarm alarm) {
         // Map the alarm to the corresponding model object that the API requires
         if (!alarm.getReductionKey().startsWith(ALARM_UEI_NODE_DOWN) &&
             !alarm.getReductionKey().startsWith(ALARM_UEI_INTERFACE_DOWN) &&
             !(alarm.getReductionKey().startsWith(ALARM_UEI_SERVICE_DOWN) && alarm.getReductionKey().endsWith("ICMP"))
             )
         {
-            LOG.debug("handleNewOrUpdatedAlarm: not matching uei, skipping alarm with reduction key: {}", alarm.getReductionKey());
+            LOG.debug("sendAlarm: not matching uei, skipping alarm with reduction key: {}", alarm.getReductionKey());
             return;
         }
-        LOG.debug("handleNewOrUpdatedAlarm: categories {}", alarm.getNode().getCategories());
+        LOG.debug("sendAlarm: categories {}", alarm.getNode().getCategories());
         if (!alarm.getNode().getCategories().contains(filter)) {
-            LOG.debug("handleNewOrUpdatedAlarm: not matching filter {}, skipping alarm with reduction key: {}", filter, alarm.getReductionKey());
+            LOG.info("sendAlarm: not matching filter {}, skipping alarm with reduction key: {}", filter, alarm.getReductionKey());
             return;
         }
 
+        LOG.info("sendAlarm: parsing alarm with reduction key: {}", alarm.getReductionKey());
         Alert alert = toAlert(alarm, edgeService.getParent(alarm.getNode()));
-        LOG.debug("handleNewOrUpdatedAlarm: converted to {}", alert );
+        LOG.info("sendAlarm: converted to {}", alert );
 
         try {
             apiClientProvider.send(
                     alert,
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
-            LOG.info("handleNewOrUpdatedAlarm: forwarded: id={} asset={}, node={}, parent={}", alert.getId(), alert.getAsset(), alert.getNode(), alert.getParentalNodeLabel());
+            LOG.info("sendAlarm: forwarded: id={} asset={}, node={}, parent={}", alert.getId(), alert.getAsset(), alert.getNode(), alert.getParentalNodeLabel());
         } catch (ApiException e) {
-            LOG.error("handleNewOrUpdatedAlarm: no forward: alarm {}, message: {}, body: {}",
+            LOG.error("sendAlarm: no forward: alarm {}, message: {}, body: {}",
                     alarm.getReductionKey(),
                     e.getMessage(),
                     e.getResponseBody(), e);
@@ -72,7 +77,10 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
     @Override
     public void handleAlarmSnapshot(List<Alarm> alarms) {
-        LOG.debug("handleAlarmSnapshot: got {} alarms", alarms.size());
+        LOG.info("handleAlarmSnapshot: got {} alarms", alarms.size());
+        if (!start)
+            return;
+        alarms.forEach(this::sendAlarm);
     }
 
     @Override

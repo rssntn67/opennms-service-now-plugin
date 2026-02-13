@@ -19,9 +19,9 @@
         </cm:default-properties>
     </cm:property-placeholder>
     <!-- Pull in service implementations from the OSGi registry -->
-    <reference id="nodeDao" interface="org.opennms.integration.api.v1.dao.NodeDao" availability="optional"/>
-    <reference id="edgeDao" interface="org.opennms.integration.api.v1.dao.EdgeDao" availability="optional"/>
-    <reference id="interfaceToNodeCache" interface="org.opennms.integration.api.v1.dao.InterfaceToNodeCache" availability="optional"/>
+    <reference id="nodeDao" interface="org.opennms.integration.api.v1.dao.NodeDao"/>
+    <reference id="edgeDao" interface="org.opennms.integration.api.v1.dao.EdgeDao"/>
+    <reference id="interfaceToNodeCache" interface="org.opennms.integration.api.v1.dao.InterfaceToNodeCache"/>
 
     <!-- Build our API client -->
     <bean id="apiClientProvider" class="org.opennms.plugins.servicenow.client.ApiClientProviderImpl">
