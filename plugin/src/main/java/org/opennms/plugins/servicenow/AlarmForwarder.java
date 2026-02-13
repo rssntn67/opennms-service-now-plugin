@@ -54,11 +54,11 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         }
         LOG.debug("sendAlarm: categories {}", alarm.getNode().getCategories());
         if (!alarm.getNode().getCategories().contains(filter)) {
-            LOG.info("sendAlarm: not matching filter {}, skipping alarm with reduction key: {}", filter, alarm.getReductionKey());
+            LOG.debug("sendAlarm: not matching filter {}, skipping alarm with reduction key: {}", filter, alarm.getReductionKey());
             return;
         }
 
-        LOG.info("sendAlarm: parsing alarm with reduction key: {}", alarm.getReductionKey());
+        LOG.info("sendAlarm: processing alarm with reduction key: {}", alarm.getReductionKey());
         Alert alert = toAlert(alarm, edgeService.getParent(alarm.getNode()));
         LOG.info("sendAlarm: converted to {}", alert );
 

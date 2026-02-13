@@ -172,10 +172,11 @@ public class EdgeService implements Runnable, HealthCheck {
     public String getParentByParentKey(Node node) {
         for (MetaData m : node.getMetaData()) {
             if (m.getContext().equals(this.context) && m.getKey().equals(this.parentKey)) {
-                LOG.info("getParent: found parent: {}, for node: {}", m.getValue(), node.getLabel() );
+                LOG.info("getParentByParentKey: found parent: {}, for node: {}", m.getValue(), node.getLabel() );
                 return m.getValue();
             }
         }
+        LOG.info("getParentByParentKey: no parent found: for node: {}", node.getLabel() );
         return null;
     }
 
@@ -184,8 +185,11 @@ public class EdgeService implements Runnable, HealthCheck {
     }
 
     public String getParentByGatewayKey(Node node) {
-        if (this.parentByGatewayKeyMap.containsKey(node.getLabel()))
+        if (this.parentByGatewayKeyMap.containsKey(node.getLabel())) {
+            LOG.info("getParentByGatewayKey: found parent: {}, for node: {}", this.parentByGatewayKeyMap.get(node.getLabel()), node.getLabel() );
             return this.parentByGatewayKeyMap.get(node.getLabel());
+        }
+        LOG.info("getParentByGatewayKey: no parent found: for node: {}", node.getLabel() );
         return "NoParentNodeFound";
     }
 
