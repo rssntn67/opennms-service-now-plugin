@@ -23,7 +23,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     private final ConnectionManager connectionManager;
     private final ApiClientProvider apiClientProvider;
     private final String filter;
-    private final boolean start = true;
+    private boolean start = true;
 
     private final EdgeService edgeService;
 
@@ -81,6 +81,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         if (!start)
             return;
         alarms.forEach(this::sendAlarm);
+        start=false;
     }
 
     @Override
