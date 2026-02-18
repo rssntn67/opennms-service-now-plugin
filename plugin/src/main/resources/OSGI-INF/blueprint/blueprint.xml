@@ -8,7 +8,7 @@
     <!-- Configuration stored in $OPENNMS_HOME/etc/org.opennms.plugins.servicenow.cfg file -->
         <cm:property-placeholder id="opennms-service-nowPluginProperties" persistent-id="org.opennms.plugins.servicenow" update-strategy="reload">
         <cm:default-properties>
-            <cm:property name="filter" value="MinnovoTest" />
+            <cm:property name="filter" value="Minnovo" />
             <cm:property name="service.initial.delay" value="5000" />
             <cm:property name="service.delay" value="3600000" />
             <cm:property name="service.iteration" value="10" />
