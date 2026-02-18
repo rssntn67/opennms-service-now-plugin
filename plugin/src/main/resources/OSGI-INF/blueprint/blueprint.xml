@@ -8,6 +8,9 @@
     <!-- Configuration stored in $OPENNMS_HOME/etc/org.opennms.plugins.servicenow.cfg file -->
         <cm:property-placeholder id="opennms-service-nowPluginProperties" persistent-id="org.opennms.plugins.servicenow" update-strategy="reload">
         <cm:default-properties>
+            <cm:property name="token.endpoint" value="token" />
+            <cm:property name="alert.endpoint" value="minnovo/a2a/servicenow/opennms/1.0/sespa/comi_opennms/crea_aggiorna_allarmi" />
+            <cm:property name="asset.endpoint" value="minnovo/a2a/servicenow/opennms/1.0/sespa/comi_opennms/inserisci_aggiorna_asset" />
             <cm:property name="filter" value="Minnovo" />
             <cm:property name="service.initial.delay" value="5000" />
             <cm:property name="service.delay" value="3600000" />
@@ -25,6 +28,9 @@
 
     <!-- Build our API client -->
     <bean id="apiClientProvider" class="org.opennms.plugins.servicenow.client.ApiClientProviderImpl">
+        <argument value="${token.endpoint}"/>
+        <argument value="${alert.endpoint}"/>
+        <argument value="${asset.endpoint}"/>
     </bean>
     <service interface="org.opennms.plugins.servicenow.client.ApiClientProvider" ref="apiClientProvider"/>
 

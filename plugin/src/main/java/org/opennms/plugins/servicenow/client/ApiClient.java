@@ -8,7 +8,9 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.opennms.plugins.servicenow.model.AccessPoint;
 import org.opennms.plugins.servicenow.model.Alert;
+import org.opennms.plugins.servicenow.model.NetworkDevice;
 import org.opennms.plugins.servicenow.model.TokenResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,8 +28,6 @@ public class ApiClient {
     private static final Logger LOG = LoggerFactory.getLogger(ApiClient.class);
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
-    public static final String TOKEN_END_POINT = "token";
-    public static final String ALERT_END_POINT = "minnovo/a2a/servicenow/opennms/1.0/sespa/comi_opennms/crea_aggiorna_allarmi";
     private final OkHttpClient clientTrueSsl = new OkHttpClient();
     private final OkHttpClient clientIgnoreSsl = trustAllSslClient(clientTrueSsl);
     private final ObjectMapper mapper = new ObjectMapper();
@@ -71,7 +71,7 @@ public class ApiClient {
     }
 
 
-    public TokenResponse getAccessToken(ApiClientCredentials credentials) throws ApiException {
+    public TokenResponse getAccessToken(ApiClientCredentials credentials, String tokenEndPoint) throws ApiException {
         OkHttpClient client;
         if (credentials.ignoreSslCertificateValidation ) {
             client = trustAllSslClient(clientIgnoreSsl);
@@ -85,7 +85,7 @@ public class ApiClient {
                 .build();
         Request request = new Request.Builder()
                 .header("Content-Type", "application/x-www-form-urlencoded")
-                .url(credentials.url+"/"+ ApiClient.TOKEN_END_POINT)
+                .url(credentials.url+"/"+ tokenEndPoint)
                 .post(formBody)
                 .build();
         try (Response response = client.newCall(request).execute()) {
@@ -106,12 +106,20 @@ public class ApiClient {
         }
     }
 
-    public void sendAlert(Alert alert, ApiClientCredentials credentials, String tokenString) throws ApiException {
-        doPost(alert, credentials, tokenString);
+    public void sendAlert(Alert alert, ApiClientCredentials credentials, String tokenString, String endpoint) throws ApiException {
+        doPost(alert, credentials, tokenString, endpoint);
+    }
+
+    public void sendAsset(AccessPoint ap, ApiClientCredentials credentials, String tokenString, String endpoint) throws ApiException {
+        doPost(ap, credentials, tokenString, endpoint);
+    }
+
+    public void sendAsset(NetworkDevice nd, ApiClientCredentials credentials, String tokenString, String endpoint) throws ApiException {
+        doPost(nd, credentials, tokenString, endpoint);
     }
 
 
-    private void doPost(Object requestBodyPayload, ApiClientCredentials credentials, String tokenString) throws ApiException {
+    private void doPost(Object requestBodyPayload, ApiClientCredentials credentials, String tokenString, String endpoint) throws ApiException {
         OkHttpClient client;
         if (credentials.ignoreSslCertificateValidation ) {
             client = trustAllSslClient(clientIgnoreSsl);
@@ -128,7 +136,7 @@ public class ApiClient {
         }
 
         Request request = new Request.Builder()
-                .url(credentials.url+"/"+ ApiClient.ALERT_END_POINT)
+                .url(credentials.url+"/"+ endpoint)
                 .header("Authorization", "Bearer " + tokenString)
                 .post(body)
                 .build();
