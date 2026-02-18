@@ -270,9 +270,7 @@ public class EdgeService implements Runnable, HealthCheck {
     public void run() {
         this.nodes.clear();
         this.nodes.addAll(nodeDao.getNodes());
-
         LOG.info("run: nodes size: {}", nodes.size());
-
         this.gatewayToChildMap.clear();
         this.gatewayToChildMap.putAll(populateGatewayMap(this.nodes));
         LOG.info("run: gatewayToChildMap size: {}", gatewayToChildMap.size());
@@ -507,6 +505,10 @@ public class EdgeService implements Runnable, HealthCheck {
     public void destroy() {
         LOG.debug("EdgeService is shutting down.");
         scheduledFuture.cancel(true);
+    }
+    
+    public List<Node> getNodes() {
+        return this.nodes;
     }
 
 }
