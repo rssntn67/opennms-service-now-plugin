@@ -18,7 +18,7 @@ OpenNMS plugin (OSGi bundle) that forwards alarms to ServiceNow via REST API. De
 
 **Modules:**
 - `plugin/` — Main source code: alarm forwarding, topology discovery, API client, Karaf shell commands
-- `karaf-features/` — Karaf feature descriptor (XML) defining OSGi bundle dependencies
+- `karaf-features/` — Karaf feature descriptor (XML) defining OSGi bundle dependencies and custom OkHttp/Jackson OSGi features
 - `assembly/` — KAR (Karaf Archive) packaging for deployment to `/opt/opennms/deploy/`
 
 ## Architecture
@@ -27,22 +27,30 @@ OpenNMS plugin (OSGi bundle) that forwards alarms to ServiceNow via REST API. De
 
 Key components in `org.opennms.plugins.servicenow`:
 
-- **AlarmForwarder** — Implements `AlarmLifecycleListener`. Filters alarms (nodeDown, interfaceDown, nodeLostService/ICMP) by configurable category filter. Converts to Alert and sends via API client.
-- **EdgeService** — Scheduled `Runnable` that discovers network topology via `EdgeDao`/`NodeDao`. Builds parent-child relationship maps using depth-limited graph traversal. Provides `getParent()` used by AlarmForwarder.
+- **AlarmForwarder** — Implements `AlarmLifecycleListener`. Filters alarms (nodeDown, interfaceDown, nodeLostService/ICMP) by configurable category filter. Converts to Alert and sends via API client. Processes alarm snapshot only once on first callback (controlled by `start` flag).
+- **EdgeService** — Discovers network topology via `EdgeDao`/`NodeDao`. Starts a scheduled executor in its constructor with configurable delays. Builds parent-child relationship maps using depth-limited graph traversal and a `TopologyEdge.EndpointVisitor` pattern. Provides `getParent()` used by AlarmForwarder.
 - **ApiClient / ApiClientProviderImpl** — OkHttp-based HTTP client. Handles OAuth2 client credentials flow with token caching (5s expiry buffer). Supports optional SSL bypass for dev.
-- **ConnectionManager** — Stores ServiceNow credentials in OpenNMS `SecureCredentialsVault` under prefix `servicenow_connection_`.
+- **ClientManager** — Wraps `ApiClientProvider` and manages the active API client instance used for sending alerts.
+- **ConnectionManager** — Stores ServiceNow credentials in OpenNMS `SecureCredentialsVault` (optional OSGi reference) under prefix `servicenow_connection_`.
+- **EventConfExtension** — Defines custom OpenNMS events for tracking send success (Normal severity) and failure (Critical severity) with alarm reduction/clearing keys.
 - **WebhookHandlerImpl** — JAX-RS REST endpoint at `/rest/opennms-service-now/ping` (returns "pong").
-- **shell/** — Karaf CLI commands for connection management, topology inspection, and test alarm sending.
+- **shell/** — Karaf CLI commands (scope: `opennms-service-now`). Subpackages: `shell/connection/` for credential management, `shell/` for topology inspection and test alarm commands.
 
 **Wiring:** OSGi Blueprint (`plugin/src/main/resources/OSGI-INF/blueprint/blueprint.xml`) configures all beans, service references, and properties from `org.opennms.plugins.servicenow.cfg`.
 
 ## Tech Stack
 
 - Java 17, Maven 3, Apache Karaf 4.3.10 (OSGi)
-- Spring via Aries Blueprint for dependency injection
-- OpenNMS Integration API 1.6.0
+- Aries Blueprint for dependency injection
+- OpenNMS Integration API 1.6.1
 - OkHttp 4.10.0, Jackson 2.14.1
-- Tests: JUnit 4, Mockito 2.18, WireMock 2.35, Awaitility 4.0
+- Tests: JUnit 4, Mockito 2.18, WireMock 2.35.1, JSONAssert 1.5, Awaitility 4.0
+
+## Testing Patterns
+
+- **Unit tests** (`*Test.java`): Mock OpenNMS DAOs/services with Mockito. Test data uses OpenNMS immutable builders (`ImmutableAlarm.newBuilder()`, `ImmutableNode.newBuilder()`). Static helper methods like `getAlarm()`, `getNode()` provide reusable test fixtures.
+- **Integration tests** (`*IT.java`): Use WireMock (`@Rule WireMockRule`) to stub the ServiceNow REST API (OAuth token + alert endpoints). Use Awaitility for async verification. Tests marked `@Ignore` are for manual validation against real ServiceNow endpoints.
+- **Shell commands**: All use `@Command(scope = "opennms-service-now", name = "...")` and implement `Action`. Inject OSGi services via `@Reference`. Use `ShellTable` for formatted output.
 
 ## Configuration
 
@@ -59,7 +67,7 @@ Runtime properties are set in `/opt/opennms/etc/org.opennms.plugins.servicenow.c
 # Copy KAR to OpenNMS
 cp assembly/kar/target/opennms-service-now-plugin-*.kar /opt/opennms/deploy/
 
-# Or install via Karaf shell
-feature:repo-add mvn:org.opennms.plugins.servicenow/karaf-features/1.1.0/xml
+# Or install via Karaf shell (use current version from pom.xml)
+feature:repo-add mvn:org.opennms.plugins.servicenow/karaf-features/<version>/xml
 feature:install opennms-plugins-opennms-service-now
 ```
