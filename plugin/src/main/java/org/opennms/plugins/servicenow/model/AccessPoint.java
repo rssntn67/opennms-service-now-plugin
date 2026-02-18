@@ -47,7 +47,7 @@ public class AccessPoint {
     private String parentalNode;
 
     @JsonProperty("install_status")
-    private int installStatus;
+    private InstallStatus installStatus;
 
     @JsonProperty("u_tipo_collegamento")
     private String tipoCollegamento;
@@ -151,11 +151,11 @@ public class AccessPoint {
         this.parentalNode = parentalNode;
     }
 
-    public int getInstallStatus() {
+    public InstallStatus getInstallStatus() {
         return installStatus;
     }
 
-    public void setInstallStatus(int installStatus) {
+    public void setInstallStatus(InstallStatus installStatus) {
         this.installStatus = installStatus;
     }
 

@@ -47,7 +47,7 @@ public class NetworkDevice {
     private String parentalNode;
 
     @JsonProperty("install_status")
-    private int installStatus;
+    private InstallStatus installStatus;
 
     @JsonProperty("u_tipo_apparato")
     private String tipoApparato;
@@ -148,11 +148,11 @@ public class NetworkDevice {
         this.parentalNode = parentalNode;
     }
 
-    public int getInstallStatus() {
+    public InstallStatus getInstallStatus() {
         return installStatus;
     }
 
-    public void setInstallStatus(int installStatus) {
+    public void setInstallStatus(InstallStatus installStatus) {
         this.installStatus = installStatus;
     }
 
