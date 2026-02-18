@@ -145,26 +145,8 @@ public class EdgeService implements Runnable, HealthCheck {
     private final Integer maxIteration;
 
     public void init() {
-        parentByGatewayKeyMap = new ConcurrentHashMap<>();
-        LOG.info("init: parentMap initialized: {}", this.parentByGatewayKeyMap != null);
-        LOG.info("init: parentMap size: {}", this.parentByGatewayKeyMap.size());
-        LOG.info("init: parentMap class: {}", this.parentByGatewayKeyMap.getClass().getName());
-        LOG.info("init: this reference: {}", this);
-        initScheduler();
     }
 
-    private void initScheduler() {
-        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-        scheduledFuture =
-                scheduledExecutorService
-                        .scheduleWithFixedDelay(
-                                this,
-                                initialDelayL,
-                                delayL,
-                                TimeUnit.MILLISECONDS
-                            );
-        LOG.info("init: Scheduler initialized, parentMap: {}", this.parentByGatewayKeyMap.size());
-    }
 
     public EdgeService(final EdgeDao edgeDao,
                        final NodeDao nodeDao,
@@ -187,6 +169,21 @@ public class EdgeService implements Runnable, HealthCheck {
         this.excludedForeignSource = Objects.requireNonNull(excludedForeignSource);
         this.initialDelayL =  Long.parseLong(Objects.requireNonNull(initialDelay));
         this.delayL =  Long.parseLong(Objects.requireNonNull(delay));
+        parentByGatewayKeyMap = new ConcurrentHashMap<>();
+        LOG.info("init: parentMap initialized: {}", this.parentByGatewayKeyMap != null);
+        LOG.info("init: parentMap size: {}", this.parentByGatewayKeyMap.size());
+        LOG.info("init: parentMap class: {}", this.parentByGatewayKeyMap.getClass().getName());
+        LOG.info("init: this reference: {}", this);
+        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        scheduledFuture =
+                scheduledExecutorService
+                        .scheduleWithFixedDelay(
+                                this,
+                                initialDelayL,
+                                delayL,
+                                TimeUnit.MILLISECONDS
+                        );
+        LOG.info("init: Scheduler initialized, parentMap: {}", this.parentByGatewayKeyMap.size());
     }
     public Set<String> getLocations() {
         return new HashSet<>(this.locations);
@@ -221,10 +218,11 @@ public class EdgeService implements Runnable, HealthCheck {
     public String getParentByParentKey(Node node) {
         for (MetaData m : node.getMetaData()) {
             if (m.getContext().equals(this.context) && m.getKey().equals(this.parentKey)) {
-                LOG.info("getParent: found parent: {}, for node: {}", m.getValue(), node.getLabel() );
+                LOG.info("getParentByParentKey: found parent: {}, for node: {}", m.getValue(), node.getLabel() );
                 return m.getValue();
             }
         }
+        LOG.info("getParentByParentKey: no parent found: for node: {}", node.getLabel() );
         return null;
     }
 
@@ -233,8 +231,11 @@ public class EdgeService implements Runnable, HealthCheck {
     }
 
     public String getParentByGatewayKey(Node node) {
-        if (this.parentByGatewayKeyMap.containsKey(node.getLabel()))
+        if (this.parentByGatewayKeyMap.containsKey(node.getLabel())) {
+            LOG.info("getParentByGatewayKey: found parent: {}, for node: {}", this.parentByGatewayKeyMap.get(node.getLabel()), node.getLabel() );
             return this.parentByGatewayKeyMap.get(node.getLabel());
+        }
+        LOG.info("getParentByGatewayKey: no parent found: for node: {}", node.getLabel() );
         return "NoParentNodeFound";
     }
 
