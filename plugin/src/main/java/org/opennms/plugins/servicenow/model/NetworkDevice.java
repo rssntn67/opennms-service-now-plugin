@@ -50,7 +50,7 @@ public class NetworkDevice {
     private InstallStatus installStatus;
 
     @JsonProperty("u_tipo_apparato")
-    private String tipoApparato;
+    private TipoApparato tipoApparato;
 
     public String getModelId() {
         return modelId;
@@ -156,11 +156,11 @@ public class NetworkDevice {
         this.installStatus = installStatus;
     }
 
-    public String getTipoApparato() {
+    public TipoApparato getTipoApparato() {
         return tipoApparato;
     }
 
-    public void setTipoApparato(String tipoApparato) {
+    public void setTipoApparato(TipoApparato tipoApparato) {
         this.tipoApparato = tipoApparato;
     }
 
