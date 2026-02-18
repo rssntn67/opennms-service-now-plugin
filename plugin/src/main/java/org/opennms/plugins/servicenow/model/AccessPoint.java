@@ -50,7 +50,7 @@ public class AccessPoint {
     private InstallStatus installStatus;
 
     @JsonProperty("u_tipo_collegamento")
-    private String tipoCollegamento;
+    private TipoCollegamento tipoCollegamento;
 
     @JsonProperty("serial_number")
     private String serialNumber;
@@ -159,11 +159,11 @@ public class AccessPoint {
         this.installStatus = installStatus;
     }
 
-    public String getTipoCollegamento() {
+    public TipoCollegamento getTipoCollegamento() {
         return tipoCollegamento;
     }
 
-    public void setTipoCollegamento(String tipoCollegamento) {
+    public void setTipoCollegamento(TipoCollegamento tipoCollegamento) {
         this.tipoCollegamento = tipoCollegamento;
     }
 
