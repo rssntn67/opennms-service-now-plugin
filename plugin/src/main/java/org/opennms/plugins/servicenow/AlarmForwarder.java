@@ -1,7 +1,10 @@
 package org.opennms.plugins.servicenow;
 
 import org.opennms.integration.api.v1.alarms.AlarmLifecycleListener;
+import org.opennms.integration.api.v1.events.EventForwarder;
 import org.opennms.integration.api.v1.model.Alarm;
+import org.opennms.integration.api.v1.model.immutables.ImmutableEventParameter;
+import org.opennms.integration.api.v1.model.immutables.ImmutableInMemoryEvent;
 import org.opennms.plugins.servicenow.client.ApiClientProvider;
 import org.opennms.plugins.servicenow.client.ApiException;
 import org.opennms.plugins.servicenow.client.ClientManager;
@@ -26,15 +29,22 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     private boolean start = true;
 
     private final EdgeService edgeService;
+    private final EventForwarder eventForwarder;
+
+    private static final String UEI_PREFIX = "uei.opennms.org/opennms-service-nowPlugin";
+    private static final String SEND_EVENT_FAILED_UEI = UEI_PREFIX + "/sendEventFailed";
+    private static final String SEND_EVENT_SUCCESSFUL_UEI = UEI_PREFIX + "/sendEventSuccessful";
 
     public AlarmForwarder(ConnectionManager connectionManager,
                           ApiClientProvider apiClientProvider,
                           String filter,
-                          EdgeService edgeservice) {
+                          EdgeService edgeservice,
+                          EventForwarder eventForwarder) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
         this.filter = Objects.requireNonNull(filter);
         this.edgeService = Objects.requireNonNull(edgeservice);
+        this.eventForwarder = Objects.requireNonNull(eventForwarder);
         LOG.info("init: filter: {}", this.filter);
     }
 
@@ -67,9 +77,29 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             apiClientProvider.send(
                     alert,
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
+            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                    .setUei(SEND_EVENT_SUCCESSFUL_UEI)
+                    .setNodeId(alarm.getNode().getId())
+                    .addParameter(ImmutableEventParameter.newBuilder()
+                            .setName("reductionKey")
+                            .setValue(alarm.getReductionKey())
+                            .build())
+                    .build());
             LOG.info("sendAlarm: forwarded: id={} asset={}, node={}, parent={}", alert.getId(), alert.getAsset(), alert.getNode(), alert.getParentalNodeLabel());
         } catch (ApiException e) {
-            LOG.error("sendAlarm: no forward: alarm {}, message: {}, body: {}",
+            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                    .setUei(SEND_EVENT_FAILED_UEI)
+                    .setNodeId(alarm.getNode().getId())
+                    .addParameter(ImmutableEventParameter.newBuilder()
+                            .setName("reductionKey")
+                            .setValue(alarm.getReductionKey())
+                            .build())
+                    .addParameter(ImmutableEventParameter.newBuilder()
+                            .setName("message")
+                            .setValue(e.getMessage())
+                            .build())
+                    .build());
+            LOG.error("sendAlarm: failed to send: alarm {}, message: {}, body: {}",
                     alarm.getReductionKey(),
                     e.getMessage(),
                     e.getResponseBody(), e);
