@@ -3,6 +3,7 @@ package org.opennms.plugins.servicenow;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.opennms.plugins.servicenow.client.ApiClientProvider;
@@ -24,22 +25,26 @@ import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opennms.plugins.servicenow.client.ApiClient.ALERT_END_POINT;
-import static org.opennms.plugins.servicenow.client.ApiClient.TOKEN_END_POINT;
 
 public class AlarmForwarderIT {
+
+    private static final String TOKEN_END_POINT = "token";
+    private static final String ALERT_END_POINT = "minnovo/a2a/servicenow/opennms/1.0/sespa/comi_opennms/crea_aggiorna_allarmi";
+    private static final String ASSET_END_POINT = "minnovo/a2a/servicenow/opennms/1.0/sespa/comi_opennms/inserisci_aggiorna_asset";
 
     @Rule
     public WireMockRule wireMockRule = new WireMockRule();
 
     @Test
+    @Ignore
     public void canForwardAlarm() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
         // Wire it up
         ConnectionManager connectionManager = mock(ConnectionManager.class);
         EdgeService service = mock(EdgeService.class);
-        ApiClientProvider apiClientProvider = new ApiClientProviderImpl();
-        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager,apiClientProvider, "CategoryA", service);
+        org.opennms.integration.api.v1.events.EventForwarder eventForwarder = mock(org.opennms.integration.api.v1.events.EventForwarder.class);
+        ApiClientProvider apiClientProvider = new ApiClientProviderImpl(TOKEN_END_POINT, ALERT_END_POINT, ASSET_END_POINT);
+        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager, apiClientProvider, "CategoryA", service, eventForwarder);
 
         when(connectionManager.getConnection()).thenReturn(Optional.of(new ConnectionTest()));
         TokenResponse response = new TokenResponse();

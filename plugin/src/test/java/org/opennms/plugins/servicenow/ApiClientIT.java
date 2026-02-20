@@ -40,16 +40,20 @@ public class ApiClientIT {
                 .build();
     }
 
+    private static final String TOKEN_END_POINT = "token";
+    private static final String ALERT_END_POINT = "minnovo/a2a/servicenow/opennms/1.0/sespa/comi_opennms/crea_aggiorna_allarmi";
+    private static final String ASSET_END_POINT = "minnovo/a2a/servicenow/opennms/1.0/sespa/comi_opennms/inserisci_aggiorna_asset";
+
     @Test
     @Ignore
     public void getAccessTokenAndSendTestAlarm() throws InterruptedException, ApiException {
         ApiClient client = new ApiClient();
-        TokenResponse token = client.getAccessToken(getCredentials());
+        TokenResponse token = client.getAccessToken(getCredentials(), TOKEN_END_POINT);
         System.out.println("AccessToken: " + token);
 
         Alert down = getTestAlert(Alert.Severity.MAJOR, Alert.Status.DOWN);
         System.out.println("sending:" + down);
-        client.sendAlert(down, getCredentials(), token.getAccessToken());
+        client.sendAlert(down, getCredentials(), token.getAccessToken(), ALERT_END_POINT);
 
         System.out.println("sleep");
         Thread.sleep(5000);
@@ -57,7 +61,7 @@ public class ApiClientIT {
 
         Alert up = getTestAlert(Alert.Severity.CLEAR, Alert.Status.UP);
         System.out.println("sending:" + up);
-        client.sendAlert(up, getCredentials(), token.getAccessToken());
+        client.sendAlert(up, getCredentials(), token.getAccessToken(), ALERT_END_POINT);
 
     }
 
@@ -91,13 +95,14 @@ public class ApiClientIT {
     @Ignore
     public void canUseConnectionAndForwardAlarm() {
         // Wire it up
-        ApiClientProviderImpl apiClientProvider = new ApiClientProviderImpl();
+        ApiClientProviderImpl apiClientProvider = new ApiClientProviderImpl(TOKEN_END_POINT, ALERT_END_POINT, ASSET_END_POINT);
         ClientManager clientManager = new ClientManager(apiClientProvider);
         Optional<ConnectionValidationError> validated = clientManager.validate((new ConnectionTest()));
         assertThat(validated.isEmpty(), is(true));
         ConnectionManager connectionManager = mock(ConnectionManager.class);
         EdgeService service = mock(EdgeService.class);
-        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager, apiClientProvider, "CategoryA", service);
+        org.opennms.integration.api.v1.events.EventForwarder eventForwarder = mock(org.opennms.integration.api.v1.events.EventForwarder.class);
+        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager, apiClientProvider, "CategoryA", service, eventForwarder);
         when(connectionManager.getConnection()).thenReturn(Optional.of(new ConnectionTest()));
         alarmForwarder.handleNewOrUpdatedAlarm(AlarmForwarderTest.getAlarm());
         System.out.println("accessToken: " + apiClientProvider.getTokenResponse().getAccessToken());

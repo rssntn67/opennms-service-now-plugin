@@ -61,8 +61,6 @@ public class EdgeServiceTest {
                 edgeDao,
                 nodeDao,
                 cache,
-                "1000000",
-                "3600000",
                 "10",
                 "provision",
                 "parent",
@@ -70,7 +68,6 @@ public class EdgeServiceTest {
                 "NODES"
         );
         service.init();
-        service.destroy();
         return service;
     }
 

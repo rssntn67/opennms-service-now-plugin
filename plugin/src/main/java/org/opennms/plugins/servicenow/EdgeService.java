@@ -4,11 +4,6 @@ import kotlin.Pair;
 import org.opennms.integration.api.v1.dao.EdgeDao;
 import org.opennms.integration.api.v1.dao.InterfaceToNodeCache;
 import org.opennms.integration.api.v1.dao.NodeDao;
-import org.opennms.integration.api.v1.health.Context;
-import org.opennms.integration.api.v1.health.HealthCheck;
-import org.opennms.integration.api.v1.health.Response;
-import org.opennms.integration.api.v1.health.Status;
-import org.opennms.integration.api.v1.health.immutables.ImmutableResponse;
 import org.opennms.integration.api.v1.model.MetaData;
 import org.opennms.integration.api.v1.model.Node;
 import org.opennms.integration.api.v1.model.TopologyEdge;
@@ -30,13 +25,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-public class EdgeService implements Runnable, HealthCheck {
+public class EdgeService implements Runnable {
 
     protected static Pair<Integer, Integer> getFromId(String id) throws RuntimeException {
         if (!id.startsWith("s:")) {
@@ -136,11 +127,6 @@ public class EdgeService implements Runnable, HealthCheck {
     private final String parentKey;
     private final String gatewayKey;
     private final String excludedForeignSource;
-    private final long initialDelayL;
-    private final long delayL;
-
-    private ScheduledFuture<?> scheduledFuture;
-
 
     private final Integer maxIteration;
 
@@ -150,24 +136,12 @@ public class EdgeService implements Runnable, HealthCheck {
         LOG.info("init: parentMap size: {}", this.parentByGatewayKeyMap.size());
         LOG.info("init: parentMap class: {}", this.parentByGatewayKeyMap.getClass().getName());
         LOG.info("init: this reference: {}", this);
-        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-        scheduledFuture =
-                scheduledExecutorService
-                        .scheduleWithFixedDelay(
-                                this,
-                                initialDelayL,
-                                delayL,
-                                TimeUnit.MILLISECONDS
-                        );
-        LOG.info("init: Scheduler initialized, parentMap: {}", this.parentByGatewayKeyMap.size());
     }
 
 
     public EdgeService(final EdgeDao edgeDao,
                        final NodeDao nodeDao,
                        final InterfaceToNodeCache interfaceToNodeCache,
-                       final String initialDelay,
-                       final String delay,
                        final String maxIteration,
                        final String context,
                        final String parentKey,
@@ -182,8 +156,6 @@ public class EdgeService implements Runnable, HealthCheck {
         this.gatewayKey = Objects.requireNonNull(gatewayKey);
         this.maxIteration = Objects.requireNonNull(Integer.valueOf(maxIteration));
         this.excludedForeignSource = Objects.requireNonNull(excludedForeignSource);
-        this.initialDelayL =  Long.parseLong(Objects.requireNonNull(initialDelay));
-        this.delayL =  Long.parseLong(Objects.requireNonNull(delay));
     }
     public Set<String> getLocations() {
         return new HashSet<>(this.locations);
@@ -280,7 +252,7 @@ public class EdgeService implements Runnable, HealthCheck {
         LOG.info("run: locations size: {}", locations.size());
 
         gatewayToGatewayLabelMap.clear();
-        gatewayToGatewayLabelMap.putAll(populateGatewayToGatewayLabelMap(this.locations, new HashSet<String>(gatewayToChildMap.keySet())));
+        gatewayToGatewayLabelMap.putAll(populateGatewayToGatewayLabelMap(this.locations, new HashSet<>(gatewayToChildMap.keySet())));
         LOG.info("run: gatewayToGatewayLabelMap: {}", gatewayToGatewayLabelMap.size());
 
         Map<String, Set<String>> gatewayMap = populateGatewayLabelToSetLabelMap();
@@ -335,9 +307,7 @@ public class EdgeService implements Runnable, HealthCheck {
         LOG.info("run: added cdp: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
         bridgeParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
         LOG.info("run: added bridge: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
-        gatewayMap.forEach((parent, set) -> {
-            set.forEach(label -> this.parentByGatewayKeyMap.putIfAbsent(label,parent));
-        });
+        gatewayMap.forEach((parent, set) -> set.forEach(label -> this.parentByGatewayKeyMap.putIfAbsent(label,parent)));
         LOG.info("run: added gateways: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
     }
 
@@ -489,24 +459,6 @@ public class EdgeService implements Runnable, HealthCheck {
         return downlevel;
     }
 
-    @Override
-    public String getDescription() {
-        return "Service Now Edge Service";
-    }
-
-    @Override
-    public Response perform(Context context) {
-        return ImmutableResponse.newBuilder()
-                .setStatus(scheduledFuture.isDone() ? Status.Failure : Status.Success)
-                .setMessage(scheduledFuture.isDone() ? "Not running" : "Running")
-                .build();
-    }
-
-    public void destroy() {
-        LOG.debug("EdgeService is shutting down.");
-        scheduledFuture.cancel(true);
-    }
-    
     public List<Node> getNodes() {
         return this.nodes;
     }

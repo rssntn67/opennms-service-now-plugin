@@ -50,12 +50,10 @@
     </bean>
     <service ref="connectionManager" interface="org.opennms.plugins.servicenow.connection.ConnectionManager"/>
 
-    <bean id="edgeService" class="org.opennms.plugins.servicenow.EdgeService" init-method="init" destroy-method="destroy">
+    <bean id="edgeService" class="org.opennms.plugins.servicenow.EdgeService" init-method="init">
         <argument ref="edgeDao"/>
         <argument ref="nodeDao"/>
         <argument ref="interfaceToNodeCache"/>
-        <argument value="${service.initial.delay}"/>
-        <argument value="${service.delay}"/>
         <argument value="${service.iteration}"/>
         <argument value="${metadata.context}"/>
         <argument value="${metadata.parent.key}"/>
@@ -76,6 +74,26 @@
     <service interface="org.opennms.integration.api.v1.alarms.AlarmLifecycleListener" ref="alarmForwarder"/>
     <!-- Expose the forwarder directly for access from our shell commands -->
     <service interface="org.opennms.plugins.servicenow.AlarmForwarder" ref="alarmForwarder"/>
+
+    <!-- Build our forwarder bean -->
+    <bean id="assetForwarder" class="org.opennms.plugins.servicenow.AssetForwarder">
+        <argument ref="connectionManager"/>
+        <argument ref="apiClientProvider"/>
+        <argument value="${filter}"/>
+        <argument ref="edgeService"/>
+        <argument ref="eventForwarder"/>
+    </bean>
+    <!-- Expose the forwarder directly for access from our shell commands -->
+    <service interface="org.opennms.plugins.servicenow.AssetForwarder" ref="assetForwarder"/>
+
+    <bean id="pluginScheduler" class="org.opennms.plugins.servicenow.PluginScheduler"
+          init-method="init" destroy-method="destroy">
+        <argument ref="edgeService"/>
+        <argument ref="assetForwarder"/>
+        <argument value="${service.initial.delay}"/>
+        <argument value="${service.delay}"/>
+    </bean>
+    <service interface="org.opennms.integration.api.v1.health.HealthCheck" ref="pluginScheduler"/>
 
     <!-- Build and expose the JAX-RS annotated webhook handler.
          This will automatically mount the endpoint over the REST API. -->
