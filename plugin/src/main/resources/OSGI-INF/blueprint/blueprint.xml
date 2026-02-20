@@ -12,6 +12,11 @@
             <cm:property name="alert.endpoint" value="minnovo/a2a/servicenow/opennms/1.0/sespa/comi_opennms/crea_aggiorna_allarmi" />
             <cm:property name="asset.endpoint" value="minnovo/a2a/servicenow/opennms/1.0/sespa/comi_opennms/inserisci_aggiorna_asset" />
             <cm:property name="filter" value="Minnovo" />
+            <cm:property name="filter.accesspoint" value="Wifi" />
+            <cm:property name="filter.networkdevice.switch" value="Switch" />
+            <cm:property name="filter.networkdevice.firewall" value="Firewall" />
+            <cm:property name="filter.networkdevice.modem.lte" value="LTE" />
+            <cm:property name="filter.networkdevice.modem.xdsl" value="XDSL" />
             <cm:property name="service.initial.delay" value="5000" />
             <cm:property name="service.delay" value="3600000" />
             <cm:property name="service.iteration" value="10" />
@@ -25,6 +30,7 @@
     <reference id="nodeDao" interface="org.opennms.integration.api.v1.dao.NodeDao"/>
     <reference id="edgeDao" interface="org.opennms.integration.api.v1.dao.EdgeDao"/>
     <reference id="interfaceToNodeCache" interface="org.opennms.integration.api.v1.dao.InterfaceToNodeCache"/>
+    <reference id="requisitionRepository" interface="org.opennms.integration.api.v1.requisition.RequisitionRepository"/>
     <reference id="eventForwarder" interface="org.opennms.integration.api.v1.events.EventForwarder"/>
 
     <!-- Build our API client -->
@@ -81,6 +87,7 @@
         <argument ref="apiClientProvider"/>
         <argument value="${filter}"/>
         <argument ref="edgeService"/>
+        <argument ref="requisitionRepository"/>
         <argument ref="eventForwarder"/>
     </bean>
     <!-- Expose the forwarder directly for access from our shell commands -->

@@ -1,14 +1,20 @@
 package org.opennms.plugins.servicenow;
 
+import org.opennms.integration.api.v1.config.requisition.RequisitionNode;
 import org.opennms.integration.api.v1.events.EventForwarder;
 import org.opennms.integration.api.v1.model.Node;
 import org.opennms.integration.api.v1.model.immutables.ImmutableEventParameter;
 import org.opennms.integration.api.v1.model.immutables.ImmutableInMemoryEvent;
+import org.opennms.integration.api.v1.requisition.RequisitionRepository;
 import org.opennms.plugins.servicenow.client.ApiClientProvider;
 import org.opennms.plugins.servicenow.client.ApiException;
 import org.opennms.plugins.servicenow.client.ClientManager;
 import org.opennms.plugins.servicenow.connection.ConnectionManager;
+import org.opennms.plugins.servicenow.model.AccessPoint;
+import org.opennms.plugins.servicenow.model.InstallStatus;
 import org.opennms.plugins.servicenow.model.NetworkDevice;
+import org.opennms.plugins.servicenow.model.TipoApparato;
+import org.opennms.plugins.servicenow.model.TipoCollegamento;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,10 +26,10 @@ public class AssetForwarder implements Runnable {
     private final ConnectionManager connectionManager;
     private final ApiClientProvider apiClientProvider;
     private final String filter;
-    private boolean start = true;
 
     private final EdgeService edgeService;
     private final EventForwarder eventForwarder;
+    private final RequisitionRepository requisitionRepository;
 
     private static final String UEI_PREFIX = "uei.opennms.org/opennms-service-nowPlugin";
     private static final String SEND_ASSET_FAILED_UEI = UEI_PREFIX + "/sendAssetFailed";
@@ -33,16 +39,18 @@ public class AssetForwarder implements Runnable {
                           ApiClientProvider apiClientProvider,
                           String filter,
                           EdgeService edgeservice,
+                          RequisitionRepository requisitionRepository,
                           EventForwarder eventForwarder) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
         this.filter = Objects.requireNonNull(filter);
         this.edgeService = Objects.requireNonNull(edgeservice);
         this.eventForwarder = Objects.requireNonNull(eventForwarder);
+        this.requisitionRepository = Objects.requireNonNull(requisitionRepository);
         LOG.info("init: filter: {}", this.filter);
     }
 
-    private void sendAsset(Node node) {
+    public void sendAsset(Node node) {
         // Map the alarm to the corresponding model object that the API requires
         if (!node.getCategories().contains(filter)) {
             LOG.debug("sendAsset: not matching filter {}, skipping asset: {}", filter, node.getId());
@@ -50,7 +58,8 @@ public class AssetForwarder implements Runnable {
         }
 
         LOG.info("sendAsset: processing node: {}", node.getId());
-        NetworkDevice networkDevice = toNetworkDevice(node, edgeService.getParent(node));
+        RequisitionNode rn = requisitionRepository.getDeployedRequisition(node.getForeignSource()).getNodes().stream().filter(rni -> rni.getForeignId().equals(node.getForeignId())).findFirst().get();
+        NetworkDevice networkDevice = toNetworkDevice(node, edgeService.getParent(node), rn.getInterfaces().get(0).getIpAddress().getHostAddress());
         LOG.info("sendAsset: converted to {}", networkDevice );
 
         try {
@@ -78,13 +87,72 @@ public class AssetForwarder implements Runnable {
         }
     }
 
-
-    public static NetworkDevice toNetworkDevice(Node node, String parentNodeLabel) {
-        return null;
+    public static String getLocation(Node node) {
+        if (node.getAssetRecord().getDescription() == null
+                || node.getAssetRecord().getDescription().isBlank()
+                || node.getAssetRecord().getDescription().isEmpty())  {
+            return node.getAssetRecord().getGeolocation().getAddress1()+ ", " + node.getAssetRecord().getGeolocation().getCity();
+        }
+        return node.getAssetRecord().getDescription();
     }
 
-    public static NetworkDevice toAccessPoint(Node node, String parentNodeLabel) {
-        return null;
+    public static NetworkDevice toNetworkDevice(Node node, String parentNodeLabel, String ipaddress) {
+        NetworkDevice networkDevice = new NetworkDevice();
+        networkDevice.setSysClassName("u_cmdb_ci_apparati_di_rete");
+        networkDevice.setCategoria("Reti Telecomunicazioni");
+        networkDevice.setName(node.getLabel());
+        networkDevice.setAssetTag(node.getForeignSource()+"::"+node.getForeignId());
+        networkDevice.setIpAddress(ipaddress);
+        networkDevice.setParentalNode(parentNodeLabel);
+        networkDevice.setModello(node.getAssetRecord().getModelNumber());
+        networkDevice.setMarca(node.getAssetRecord().getVendor());
+        networkDevice.setModelId(node.getAssetRecord().getOperatingSystem());
+        networkDevice.setInstallStatus(InstallStatus.ATTIVO);
+
+        //location
+        networkDevice.setLocation(getLocation(node));
+        networkDevice.setLatitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLatitude()));
+        networkDevice.setLongitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLongitude()));
+
+        //specific network device
+        networkDevice.setTipoApparato(TipoApparato.SWITCH);
+
+        return networkDevice;
+    }
+
+    public static AccessPoint toAccessPoint(Node node, String parentNodeLabel, String ipaddress) {
+        AccessPoint accessPoint = new AccessPoint();
+        accessPoint.setSysClassName("u_cmdb_ci_access_point");
+        accessPoint.setCategoria("Wifi");
+        accessPoint.setName(node.getLabel());
+        accessPoint.setAssetTag(node.getForeignSource()+"::"+node.getForeignId());
+        accessPoint.setIpAddress(ipaddress);
+        accessPoint.setParentalNode(parentNodeLabel);
+        accessPoint.setModello(node.getAssetRecord().getModelNumber());
+        accessPoint.setMarca(node.getAssetRecord().getVendor());
+        accessPoint.setModelId(node.getAssetRecord().getOperatingSystem());
+        accessPoint.setInstallStatus(InstallStatus.ATTIVO);
+
+        //location
+        accessPoint.setLocation(getLocation(node));
+        accessPoint.setLatitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLatitude()));
+        accessPoint.setLongitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLongitude()));
+
+        //specific access point
+        accessPoint.setTipoCollegamento(getTipoCollegamento(node.getLocation()));
+        accessPoint.setSerialNumber(node.getAssetRecord().getAssetNumber());
+        return accessPoint;
+    }
+
+    private static TipoCollegamento getTipoCollegamento(String location) {
+        switch (location) {
+            case "Default":
+                return TipoCollegamento.CAMPUS;
+            case "sctt":
+                return TipoCollegamento.SCTT;
+            default:
+                return TipoCollegamento.ALTRO;
+        }
     }
 
     @Override

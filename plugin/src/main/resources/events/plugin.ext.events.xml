@@ -16,4 +16,21 @@
         <severity>Critical</severity>
         <alarm-data reduction-key="%uei%:%parm[reductionKey]%" alarm-type="1" />
     </event>
+    <event>
+        <uei>uei.opennms.org/opennms-service-nowPlugin/sendAssetSuccessful</uei>
+        <event-label>OpenNMS Service Now: Successfully sent asset</event-label>
+        <descr>Successfully sent asset via REST API for asset: %nodeid%</descr>
+        <logmsg dest="logndisplay">OpenNMS Service Now: Successfully sent event for asset: %nodeid%</logmsg>
+        <severity>Normal</severity>
+        <alarm-data reduction-key="%uei%:%nodeid%" alarm-type="2"
+                    clear-key="uei.opennms.org/opennms-service-nowPlugin/sendAssetFailed:%nodeid%"/>
+    </event>
+    <event>
+        <uei>uei.opennms.org/opennms-service-nowPlugin/sendAssetFailed</uei>
+        <event-label>OpenNMS Service Now: Failed to forward asset</event-label>
+        <descr>Failed to sent event via REST API for alarm with reduction key: %nodeid%. Message is: %parm[message]%</descr>
+        <logmsg dest="logndisplay">OpenNMS Service Now: Failed to sent event for alarm: %nodeid%</logmsg>
+        <severity>Critical</severity>
+        <alarm-data reduction-key="%uei%:%nodeid%" alarm-type="1" />
+    </event>
 </events>
