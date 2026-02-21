@@ -26,7 +26,11 @@ public class AssetForwarder implements Runnable {
 
     private final ConnectionManager connectionManager;
     private final ApiClientProvider apiClientProvider;
-    private final String filter;
+    private final String filterAccessPoint;
+    private final String filterSwitch;
+    private final String filterFirewall;
+    private final String filterModemLte;
+    private final String filterModemXdsl;
 
     private final NodeDao nodeDao;
     private final EdgeService edgeService;
@@ -39,25 +43,38 @@ public class AssetForwarder implements Runnable {
 
     public AssetForwarder(ConnectionManager connectionManager,
                           ApiClientProvider apiClientProvider,
-                          String filter,
+                          String filterAccessPoint,
+                          String filterSwitch,
+                          String filterFirewall,
+                          String filterModemLte,
+                          String filterModemXdsl,
                           NodeDao nodeDao,
                           EdgeService edgeservice,
                           RequisitionRepository requisitionRepository,
                           EventForwarder eventForwarder) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
-        this.filter = Objects.requireNonNull(filter);
+        this.filterAccessPoint = Objects.requireNonNull(filterAccessPoint);
+        this.filterSwitch = Objects.requireNonNull(filterSwitch);
+        this.filterFirewall = Objects.requireNonNull(filterFirewall);
+        this.filterModemLte = Objects.requireNonNull(filterModemLte);
+        this.filterModemXdsl = Objects.requireNonNull(filterModemXdsl);
         this.nodeDao = Objects.requireNonNull(nodeDao);
         this.edgeService = Objects.requireNonNull(edgeservice);
         this.eventForwarder = Objects.requireNonNull(eventForwarder);
         this.requisitionRepository = Objects.requireNonNull(requisitionRepository);
-        LOG.info("init: filter: {}", this.filter);
+        LOG.info("init: filterAccessPoint: {}, filterSwitch: {}, filterFirewall: {}, filterModemLte: {}, filterModemXdsl: {}",
+                this.filterAccessPoint, this.filterSwitch, this.filterFirewall, this.filterModemLte, this.filterModemXdsl);
     }
 
     public void sendAsset(Node node) {
         // Map the alarm to the corresponding model object that the API requires
-        if (!node.getCategories().contains(filter)) {
-            LOG.debug("sendAsset: not matching filter {}, skipping asset: {}", filter, node.getId());
+        if (!node.getCategories().contains(filterAccessPoint)
+                && !node.getCategories().contains(filterSwitch)
+                && !node.getCategories().contains(filterFirewall)
+                && !node.getCategories().contains(filterModemLte)
+                && !node.getCategories().contains(filterModemXdsl)) {
+            LOG.debug("sendAsset: not matching any filter, skipping asset: {}", node.getId());
             return;
         }
 
@@ -161,7 +178,13 @@ public class AssetForwarder implements Runnable {
 
     @Override
     public void run() {
-        nodeDao.getNodes().stream().filter(n -> n.getCategories().contains(filter)).forEach(this::sendAsset);
+        nodeDao.getNodes().stream()
+                .filter(n -> n.getCategories().contains(filterAccessPoint)
+                        || n.getCategories().contains(filterSwitch)
+                        || n.getCategories().contains(filterFirewall)
+                        || n.getCategories().contains(filterModemLte)
+                        || n.getCategories().contains(filterModemXdsl))
+                .forEach(this::sendAsset);
     }
 
 }

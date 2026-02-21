@@ -85,7 +85,11 @@
     <bean id="assetForwarder" class="org.opennms.plugins.servicenow.AssetForwarder">
         <argument ref="connectionManager"/>
         <argument ref="apiClientProvider"/>
-        <argument value="${filter}"/>
+        <argument value="${filter.accesspoint}"/>
+        <argument value="${filter.networkdevice.switch}"/>
+        <argument value="${filter.networkdevice.firewall}"/>
+        <argument value="${filter.networkdevice.modem.lte}"/>
+        <argument value="${filter.networkdevice.modem.xdsl}"/>
         <argument ref="nodeDao"/>
         <argument ref="edgeService"/>
         <argument ref="requisitionRepository"/>
