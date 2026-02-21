@@ -19,7 +19,16 @@ import org.opennms.plugins.servicenow.model.TipoCollegamento;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Properties;
 
 public class AssetForwarder implements Runnable {
     private static final Logger LOG = LoggerFactory.getLogger(AssetForwarder.class);
@@ -37,6 +46,8 @@ public class AssetForwarder implements Runnable {
     private final EdgeService edgeService;
     private final EventForwarder eventForwarder;
     private final RequisitionRepository requisitionRepository;
+    private final String assetCacheFile;
+    private final Map<String, String> hashCache = new HashMap<>();
 
     private static final String UEI_PREFIX = "uei.opennms.org/opennms-service-nowPlugin";
     private static final String SEND_ASSET_FAILED_UEI = UEI_PREFIX + "/sendAssetFailed";
@@ -53,7 +64,8 @@ public class AssetForwarder implements Runnable {
                           NodeDao nodeDao,
                           EdgeService edgeservice,
                           RequisitionRepository requisitionRepository,
-                          EventForwarder eventForwarder) {
+                          EventForwarder eventForwarder,
+                          String assetCacheFile) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
         this.filter= Objects.requireNonNull(filter);
@@ -66,8 +78,41 @@ public class AssetForwarder implements Runnable {
         this.edgeService = Objects.requireNonNull(edgeservice);
         this.eventForwarder = Objects.requireNonNull(eventForwarder);
         this.requisitionRepository = Objects.requireNonNull(requisitionRepository);
+        this.assetCacheFile = Objects.requireNonNull(assetCacheFile);
+        loadCache();
         LOG.info("init: filterAccessPoint: {}, filterSwitch: {}, filterFirewall: {}, filterModemLte: {}, filterModemXdsl: {}",
                 this.filterAccessPoint, this.filterSwitch, this.filterFirewall, this.filterModemLte, this.filterModemXdsl);
+    }
+
+    private void loadCache() {
+        Path path = Paths.get(assetCacheFile);
+        if (!Files.exists(path)) {
+            LOG.info("loadCache: cache file not found, starting fresh: {}", assetCacheFile);
+            return;
+        }
+        Properties props = new Properties();
+        try (InputStream in = Files.newInputStream(path)) {
+            props.load(in);
+            props.forEach((k, v) -> hashCache.put((String) k, (String) v));
+            LOG.info("loadCache: loaded {} entries from {}", hashCache.size(), assetCacheFile);
+        } catch (IOException e) {
+            LOG.warn("loadCache: failed to read cache file {}, starting fresh", assetCacheFile, e);
+        }
+    }
+
+    private boolean isUnchanged(String assetTag, int hash) {
+        return String.valueOf(hash).equals(hashCache.get(assetTag));
+    }
+
+    private void updateCache(String assetTag, int hash) {
+        hashCache.put(assetTag, String.valueOf(hash));
+        Properties props = new Properties();
+        props.putAll(hashCache);
+        try (OutputStream out = Files.newOutputStream(Paths.get(assetCacheFile))) {
+            props.store(out, null);
+        } catch (IOException e) {
+            LOG.error("updateCache: failed to write cache file {}", assetCacheFile, e);
+        }
     }
 
     public void sendAsset(Node node) {
@@ -125,11 +170,16 @@ public class AssetForwarder implements Runnable {
     }
 
     public void sendAccessPoint(Node node, AccessPoint accessPoint) {
+        if (isUnchanged(accessPoint.getAssetTag(), accessPoint.hashCode())) {
+            LOG.debug("sendAccessPoint: skipping unchanged asset: {}", accessPoint.getAssetTag());
+            return;
+        }
         LOG.info("sendAccessPoint: converted to {}", accessPoint);
         try {
             apiClientProvider.send(
                     accessPoint,
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
+            updateCache(accessPoint.getAssetTag(), accessPoint.hashCode());
             eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                     .setUei(SEND_ASSET_SUCCESSFUL_UEI)
                     .setNodeId(node.getId())
@@ -152,11 +202,16 @@ public class AssetForwarder implements Runnable {
     }
 
     public void sendNetworkDevice(Node node, NetworkDevice networkDevice) {
+        if (isUnchanged(networkDevice.getAssetTag(), networkDevice.hashCode())) {
+            LOG.debug("sendNetworkDevice: skipping unchanged asset: {}", networkDevice.getAssetTag());
+            return;
+        }
         LOG.info("sendNetworkDevice: converted to {}", networkDevice);
         try {
             apiClientProvider.send(
                     networkDevice,
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
+            updateCache(networkDevice.getAssetTag(), networkDevice.hashCode());
             eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                     .setUei(SEND_ASSET_SUCCESSFUL_UEI)
                     .setNodeId(node.getId())

@@ -24,6 +24,7 @@
             <cm:property name="metadata.context" value="requisition" />
             <cm:property name="metadata.parent.key" value="parent" />
             <cm:property name="metadata.gateway.key" value="gateway" />
+            <cm:property name="asset.cache.file" value="/opt/opennms/etc/servicenow-asset-cache.properties" />
         </cm:default-properties>
     </cm:property-placeholder>
     <!-- Pull in service implementations from the OSGi registry -->
@@ -95,6 +96,7 @@
         <argument ref="edgeService"/>
         <argument ref="requisitionRepository"/>
         <argument ref="eventForwarder"/>
+        <argument value="${asset.cache.file}"/>
     </bean>
     <!-- Expose the forwarder directly for access from our shell commands -->
     <service interface="org.opennms.plugins.servicenow.AssetForwarder" ref="assetForwarder"/>
