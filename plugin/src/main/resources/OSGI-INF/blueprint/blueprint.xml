@@ -86,6 +86,7 @@
         <argument ref="connectionManager"/>
         <argument ref="apiClientProvider"/>
         <argument value="${filter}"/>
+        <argument ref="nodeDao"/>
         <argument ref="edgeService"/>
         <argument ref="requisitionRepository"/>
         <argument ref="eventForwarder"/>

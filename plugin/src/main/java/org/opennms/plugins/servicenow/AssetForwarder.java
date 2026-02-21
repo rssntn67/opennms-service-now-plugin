@@ -1,6 +1,7 @@
 package org.opennms.plugins.servicenow;
 
 import org.opennms.integration.api.v1.config.requisition.RequisitionNode;
+import org.opennms.integration.api.v1.dao.NodeDao;
 import org.opennms.integration.api.v1.events.EventForwarder;
 import org.opennms.integration.api.v1.model.Node;
 import org.opennms.integration.api.v1.model.immutables.ImmutableEventParameter;
@@ -27,6 +28,7 @@ public class AssetForwarder implements Runnable {
     private final ApiClientProvider apiClientProvider;
     private final String filter;
 
+    private final NodeDao nodeDao;
     private final EdgeService edgeService;
     private final EventForwarder eventForwarder;
     private final RequisitionRepository requisitionRepository;
@@ -38,12 +40,14 @@ public class AssetForwarder implements Runnable {
     public AssetForwarder(ConnectionManager connectionManager,
                           ApiClientProvider apiClientProvider,
                           String filter,
+                          NodeDao nodeDao,
                           EdgeService edgeservice,
                           RequisitionRepository requisitionRepository,
                           EventForwarder eventForwarder) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
         this.filter = Objects.requireNonNull(filter);
+        this.nodeDao = Objects.requireNonNull(nodeDao);
         this.edgeService = Objects.requireNonNull(edgeservice);
         this.eventForwarder = Objects.requireNonNull(eventForwarder);
         this.requisitionRepository = Objects.requireNonNull(requisitionRepository);
@@ -157,7 +161,7 @@ public class AssetForwarder implements Runnable {
 
     @Override
     public void run() {
-        edgeService.getNodes().stream().filter(n  -> n.getCategories().contains(filter)).forEach(this::sendAsset);
+        nodeDao.getNodes().stream().filter(n -> n.getCategories().contains(filter)).forEach(this::sendAsset);
     }
 
 }
