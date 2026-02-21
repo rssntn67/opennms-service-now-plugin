@@ -49,6 +49,32 @@ public class NetworkDevice {
     @JsonProperty("install_status")
     private InstallStatus installStatus;
 
+    @Override
+    public final boolean equals(Object o) {
+        if (!(o instanceof NetworkDevice that)) return false;
+
+        return Objects.equals(modelId, that.modelId) && Objects.equals(categoria, that.categoria) && Objects.equals(sysClassName, that.sysClassName) && Objects.equals(assetTag, that.assetTag) && Objects.equals(name, that.name) && Objects.equals(marca, that.marca) && Objects.equals(modello, that.modello) && Objects.equals(location, that.location) && Objects.equals(latitudine, that.latitudine) && Objects.equals(longitudine, that.longitudine) && Objects.equals(ipAddress, that.ipAddress) && Objects.equals(parentalNode, that.parentalNode) && installStatus == that.installStatus && tipoApparato == that.tipoApparato;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hashCode(modelId);
+        result = 31 * result + Objects.hashCode(categoria);
+        result = 31 * result + Objects.hashCode(sysClassName);
+        result = 31 * result + Objects.hashCode(assetTag);
+        result = 31 * result + Objects.hashCode(name);
+        result = 31 * result + Objects.hashCode(marca);
+        result = 31 * result + Objects.hashCode(modello);
+        result = 31 * result + Objects.hashCode(location);
+        result = 31 * result + Objects.hashCode(latitudine);
+        result = 31 * result + Objects.hashCode(longitudine);
+        result = 31 * result + Objects.hashCode(ipAddress);
+        result = 31 * result + Objects.hashCode(parentalNode);
+        result = 31 * result + Objects.hashCode(installStatus);
+        result = 31 * result + Objects.hashCode(tipoApparato);
+        return result;
+    }
+
     @JsonProperty("u_tipo_apparato")
     private TipoApparato tipoApparato;
 
@@ -162,20 +188,6 @@ public class NetworkDevice {
 
     public void setTipoApparato(TipoApparato tipoApparato) {
         this.tipoApparato = tipoApparato;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        NetworkDevice that = (NetworkDevice) o;
-        return Objects.equals(assetTag, that.assetTag) &&
-                Objects.equals(name, that.name);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(assetTag, name);
     }
 
     @Override
