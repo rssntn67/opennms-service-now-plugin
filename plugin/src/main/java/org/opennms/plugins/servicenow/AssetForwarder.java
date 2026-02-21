@@ -26,6 +26,7 @@ public class AssetForwarder implements Runnable {
 
     private final ConnectionManager connectionManager;
     private final ApiClientProvider apiClientProvider;
+    private final String filter;
     private final String filterAccessPoint;
     private final String filterSwitch;
     private final String filterFirewall;
@@ -43,6 +44,7 @@ public class AssetForwarder implements Runnable {
 
     public AssetForwarder(ConnectionManager connectionManager,
                           ApiClientProvider apiClientProvider,
+                          String filter,
                           String filterAccessPoint,
                           String filterSwitch,
                           String filterFirewall,
@@ -54,6 +56,7 @@ public class AssetForwarder implements Runnable {
                           EventForwarder eventForwarder) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
+        this.filter= Objects.requireNonNull(filter);
         this.filterAccessPoint = Objects.requireNonNull(filterAccessPoint);
         this.filterSwitch = Objects.requireNonNull(filterSwitch);
         this.filterFirewall = Objects.requireNonNull(filterFirewall);
@@ -69,29 +72,57 @@ public class AssetForwarder implements Runnable {
 
     public void sendAsset(Node node) {
         // Map the alarm to the corresponding model object that the API requires
-        if (!node.getCategories().contains(filterAccessPoint)
-                && !node.getCategories().contains(filterSwitch)
-                && !node.getCategories().contains(filterFirewall)
-                && !node.getCategories().contains(filterModemLte)
-                && !node.getCategories().contains(filterModemXdsl)) {
-            LOG.debug("sendAsset: not matching any filter, skipping asset: {}", node.getId());
+        LOG.info("sendAsset: processing node: {}", node.getId());
+        RequisitionNode rn = requisitionRepository
+                .getDeployedRequisition(
+                        node.getForeignSource())
+                .getNodes()
+                .stream()
+                .filter(rni -> rni.getForeignId().equals(node.getForeignId()))
+                .findFirst()
+                .get();
+        String ipaddress = rn.getInterfaces().getFirst().getIpAddress().getHostAddress();
+        if (node.getCategories().contains(filterAccessPoint)) {
+            sendAccessPoint(node, toAccessPoint(node, edgeService.getParent(node), ipaddress));
             return;
         }
+        if (node.getCategories().contains(filterSwitch)) {
+            sendNetworkDevice(node, toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.SWITCH));
+            return;
+        }
+        if (node.getCategories().contains(filterFirewall)) {
+            sendNetworkDevice(node, toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.FIREWALL));
+            return;
+        }
+        if (node.getCategories().contains(filterModemLte)) {
+            sendNetworkDevice(node, toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_LTE));
+            return;
+        }
+        if (node.getCategories().contains(filterModemXdsl)) {
+            sendNetworkDevice(node, toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_XDSL));
+        }
+        LOG.error("sendAsset: no match category for node {}", node.getId());
+        eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                .setUei(SEND_ASSET_FAILED_UEI)
+                .setNodeId(node.getId())
+                .addParameter(ImmutableEventParameter.newBuilder()
+                        .setName("message")
+                        .setValue("No matching category found")
+                        .build())
+                .build());
+    }
 
-        LOG.info("sendAsset: processing node: {}", node.getId());
-        RequisitionNode rn = requisitionRepository.getDeployedRequisition(node.getForeignSource()).getNodes().stream().filter(rni -> rni.getForeignId().equals(node.getForeignId())).findFirst().get();
-        NetworkDevice networkDevice = toNetworkDevice(node, edgeService.getParent(node), rn.getInterfaces().get(0).getIpAddress().getHostAddress());
-        LOG.info("sendAsset: converted to {}", networkDevice );
-
+    public void sendAccessPoint(Node node, AccessPoint accessPoint) {
+        LOG.info("sendAccessPoint: converted to {}", accessPoint);
         try {
             apiClientProvider.send(
-                    networkDevice,
+                    accessPoint,
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                     .setUei(SEND_ASSET_SUCCESSFUL_UEI)
                     .setNodeId(node.getId())
                     .build());
-            LOG.info("sendAsset: forwarded: {}",  networkDevice);
+            LOG.info("sendAccessPoint: forwarded: {}",  accessPoint);
         } catch (ApiException e) {
             eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                     .setUei(SEND_ASSET_FAILED_UEI)
@@ -101,7 +132,34 @@ public class AssetForwarder implements Runnable {
                             .setValue(e.getMessage())
                             .build())
                     .build());
-            LOG.error("sendAsset: failed to send:  {}, message: {}, body: {}",
+            LOG.error("sendAccessPoint: failed to send:  {}, message: {}, body: {}",
+                    node,
+                    e.getMessage(),
+                    e.getResponseBody(), e);
+        }
+    }
+
+    public void sendNetworkDevice(Node node, NetworkDevice networkDevice) {
+        LOG.info("sendNetworkDevice: converted to {}", networkDevice);
+        try {
+            apiClientProvider.send(
+                    networkDevice,
+                    ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
+            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                    .setUei(SEND_ASSET_SUCCESSFUL_UEI)
+                    .setNodeId(node.getId())
+                    .build());
+            LOG.info("sendNetworkDevice: forwarded: {}",  networkDevice);
+        } catch (ApiException e) {
+            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                    .setUei(SEND_ASSET_FAILED_UEI)
+                    .setNodeId(node.getId())
+                    .addParameter(ImmutableEventParameter.newBuilder()
+                            .setName("message")
+                            .setValue(e.getMessage())
+                            .build())
+                    .build());
+            LOG.error("sendNetworkDevice: failed to send:  {}, message: {}, body: {}",
                     node,
                     e.getMessage(),
                     e.getResponseBody(), e);
@@ -117,7 +175,7 @@ public class AssetForwarder implements Runnable {
         return node.getAssetRecord().getDescription();
     }
 
-    public static NetworkDevice toNetworkDevice(Node node, String parentNodeLabel, String ipaddress) {
+    public static NetworkDevice toNetworkDevice(Node node, String parentNodeLabel, String ipaddress, TipoApparato tipoApparato) {
         NetworkDevice networkDevice = new NetworkDevice();
         networkDevice.setSysClassName("u_cmdb_ci_apparati_di_rete");
         networkDevice.setCategoria("Reti Telecomunicazioni");
@@ -136,7 +194,7 @@ public class AssetForwarder implements Runnable {
         networkDevice.setLongitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLongitude()));
 
         //specific network device
-        networkDevice.setTipoApparato(TipoApparato.SWITCH);
+        networkDevice.setTipoApparato(tipoApparato);
 
         return networkDevice;
     }
@@ -179,11 +237,7 @@ public class AssetForwarder implements Runnable {
     @Override
     public void run() {
         nodeDao.getNodes().stream()
-                .filter(n -> n.getCategories().contains(filterAccessPoint)
-                        || n.getCategories().contains(filterSwitch)
-                        || n.getCategories().contains(filterFirewall)
-                        || n.getCategories().contains(filterModemLte)
-                        || n.getCategories().contains(filterModemXdsl))
+                .filter(n -> n.getCategories().contains(filter))
                 .forEach(this::sendAsset);
     }
 

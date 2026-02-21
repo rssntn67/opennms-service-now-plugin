@@ -85,6 +85,7 @@
     <bean id="assetForwarder" class="org.opennms.plugins.servicenow.AssetForwarder">
         <argument ref="connectionManager"/>
         <argument ref="apiClientProvider"/>
+        <argument value="${filter}"/>
         <argument value="${filter.accesspoint}"/>
         <argument value="${filter.networkdevice.switch}"/>
         <argument value="${filter.networkdevice.firewall}"/>
