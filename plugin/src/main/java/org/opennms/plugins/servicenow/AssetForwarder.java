@@ -80,7 +80,19 @@ public class AssetForwarder implements Runnable {
                 .stream()
                 .filter(rni -> rni.getForeignId().equals(node.getForeignId()))
                 .findFirst()
-                .get();
+                .orElse(null);
+        if (rn == null || rn.getInterfaces() == null) {
+            LOG.error("sendAsset: no ipaddress for node {}", node.getId());
+            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                    .setUei(SEND_ASSET_FAILED_UEI)
+                    .setNodeId(node.getId())
+                    .addParameter(ImmutableEventParameter.newBuilder()
+                            .setName("message")
+                            .setValue("No ip address found")
+                            .build())
+                    .build());
+            return;
+        }
         String ipaddress = rn.getInterfaces().getFirst().getIpAddress().getHostAddress();
         if (node.getCategories().contains(filterAccessPoint)) {
             sendAccessPoint(node, toAccessPoint(node, edgeService.getParent(node), ipaddress));
