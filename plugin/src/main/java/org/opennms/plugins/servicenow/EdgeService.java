@@ -160,22 +160,11 @@ public class EdgeService implements Runnable {
         return new HashSet<>(gatewayToChildMap.keySet());
     }
 
-    public Map<String, String> getGatewayToGatewayLabelMap() {
-        return gatewayToGatewayLabelMap;
-    }
-
-    public String getGatewayLabel(String ip) {
-        if (gatewayToGatewayLabelMap.containsKey(ip)) {
-            return gatewayToGatewayLabelMap.get(ip);
-        }
-        return "noGatewayLabelFound";
-    }
-
     public Map<String, String> getParentByGatewayKeyMap() {
         return parentByGatewayKeyMap;
     }
 
-    public String getParentByParentKey(Node node) {
+    private String getParentByParentKey(Node node) {
         for (MetaData m : node.getMetaData()) {
             if (m.getContext().equals(this.context) && m.getKey().equals(this.parentKey)) {
                 LOG.info("getParentByParentKey: found parent: {}, for node: {}", m.getValue(), node.getLabel() );
@@ -186,21 +175,13 @@ public class EdgeService implements Runnable {
         return null;
     }
 
-    public String getParentByParentKey(int nodeId) {
-        return getParentByParentKey(nodeDao.getNodeById(nodeId));
-    }
-
-    public String getParentByGatewayKey(Node node) {
+    private String getParentByGatewayKey(Node node) {
         if (this.parentByGatewayKeyMap.containsKey(node.getLabel())) {
             LOG.info("getParentByGatewayKey: found parent: {}, for node: {}", this.parentByGatewayKeyMap.get(node.getLabel()), node.getLabel() );
             return this.parentByGatewayKeyMap.get(node.getLabel());
         }
         LOG.info("getParentByGatewayKey: no parent found: for node: {}", node.getLabel() );
         return "NoParentNodeFound";
-    }
-
-    public String getParentByGatewayKey(int nodeId) {
-        return getParentByGatewayKey(nodeDao.getNodeById(nodeId));
     }
 
     public String getParent(int nodeId) {
