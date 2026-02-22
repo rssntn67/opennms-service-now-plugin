@@ -298,14 +298,11 @@ public class AssetForwarder implements Runnable {
     }
 
     private static TipoCollegamento getTipoCollegamento(String location) {
-        switch (location) {
-            case "Default":
-                return TipoCollegamento.CAMPUS;
-            case "sctt":
-                return TipoCollegamento.SCTT;
-            default:
-                return TipoCollegamento.ALTRO;
-        }
+        return switch (location) {
+            case "Default" -> TipoCollegamento.CAMPUS;
+            case "sctt" -> TipoCollegamento.SCTT;
+            default -> TipoCollegamento.ALTRO;
+        };
     }
 
     @Override
