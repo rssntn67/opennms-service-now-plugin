@@ -1,6 +1,5 @@
 package org.opennms.plugins.servicenow;
 
-import org.opennms.integration.api.v1.config.requisition.RequisitionNode;
 import org.opennms.integration.api.v1.dao.NodeDao;
 import org.opennms.integration.api.v1.events.EventForwarder;
 import org.opennms.integration.api.v1.model.Node;
@@ -26,9 +25,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class AssetForwarder implements Runnable {
     private static final Logger LOG = LoggerFactory.getLogger(AssetForwarder.class);
@@ -49,6 +51,7 @@ public class AssetForwarder implements Runnable {
     private final String assetCacheFile;
     private final Map<String, String> hashCache = new HashMap<>();
 
+    private final Map<String, String> fsFiIpAddressMap = new HashMap<>();
     private static final String UEI_PREFIX = "uei.opennms.org/opennms-service-nowPlugin";
     private static final String SEND_ASSET_FAILED_UEI = UEI_PREFIX + "/sendAssetFailed";
     private static final String SEND_ASSET_SUCCESSFUL_UEI = UEI_PREFIX + "/sendAssetSuccessful";
@@ -84,6 +87,14 @@ public class AssetForwarder implements Runnable {
                 this.filterAccessPoint, this.filterSwitch, this.filterFirewall, this.filterModemLte, this.filterModemXdsl);
     }
 
+    private static String getAssetTag(Node node) {
+        return getAssetTag(node.getForeignSource(),node.getForeignId());
+    }
+
+    private static String getAssetTag(String fs, String fid) {
+        return fs+"::"+fid;
+    }
+
     private void loadCache() {
         Path path = Paths.get(assetCacheFile);
         if (!Files.exists(path)) {
@@ -117,17 +128,12 @@ public class AssetForwarder implements Runnable {
 
     public void sendAsset(Node node) {
         // Map the alarm to the corresponding model object that the API requires
-        LOG.info("sendAsset: processing node: {}", node.getId());
-        RequisitionNode rn = requisitionRepository
-                .getDeployedRequisition(
-                        node.getForeignSource())
-                .getNodes()
-                .stream()
-                .filter(rni -> rni.getForeignId().equals(node.getForeignId()))
-                .findFirst()
-                .orElse(null);
-        if (rn == null || rn.getInterfaces() == null) {
-            LOG.error("sendAsset: no ipaddress for node {}", node.getId());
+        LOG.info("sendAsset: processing node with id:{} fs:{}, fid:{}",
+                node.getId(),
+                node.getForeignSource(),
+                node.getForeignId());
+        if (!fsFiIpAddressMap.containsKey(getAssetTag(node))) {
+            LOG.error("sendAsset: no ip address for node {}", node.getId());
             eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                     .setUei(SEND_ASSET_FAILED_UEI)
                     .setNodeId(node.getId())
@@ -138,7 +144,7 @@ public class AssetForwarder implements Runnable {
                     .build());
             return;
         }
-        String ipaddress = rn.getInterfaces().getFirst().getIpAddress().getHostAddress();
+        String ipaddress = fsFiIpAddressMap.get(getAssetTag(node));
         if (node.getCategories().contains(filterAccessPoint)) {
             sendAccessPoint(node, toAccessPoint(node, edgeService.getParent(node), ipaddress));
             return;
@@ -157,6 +163,7 @@ public class AssetForwarder implements Runnable {
         }
         if (node.getCategories().contains(filterModemXdsl)) {
             sendNetworkDevice(node, toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_XDSL));
+            return;
         }
         LOG.error("sendAsset: no match category for node {}", node.getId());
         eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
@@ -247,7 +254,7 @@ public class AssetForwarder implements Runnable {
         networkDevice.setSysClassName("u_cmdb_ci_apparati_di_rete");
         networkDevice.setCategoria("Reti Telecomunicazioni");
         networkDevice.setName(node.getLabel());
-        networkDevice.setAssetTag(node.getForeignSource()+"::"+node.getForeignId());
+        networkDevice.setAssetTag(getAssetTag(node));
         networkDevice.setIpAddress(ipaddress);
         networkDevice.setParentalNode(parentNodeLabel);
         networkDevice.setModello(node.getAssetRecord().getModelNumber());
@@ -271,7 +278,7 @@ public class AssetForwarder implements Runnable {
         accessPoint.setSysClassName("u_cmdb_ci_access_point");
         accessPoint.setCategoria("Wifi");
         accessPoint.setName(node.getLabel());
-        accessPoint.setAssetTag(node.getForeignSource()+"::"+node.getForeignId());
+        accessPoint.setAssetTag(getAssetTag(node));
         accessPoint.setIpAddress(ipaddress);
         accessPoint.setParentalNode(parentNodeLabel);
         accessPoint.setModello(node.getAssetRecord().getModelNumber());
@@ -303,9 +310,27 @@ public class AssetForwarder implements Runnable {
 
     @Override
     public void run() {
-        nodeDao.getNodes().stream()
-                .filter(n -> n.getCategories().contains(filter))
-                .forEach(this::sendAsset);
+        List<Node> nodes = nodeDao.getNodes().stream().filter(n -> n.getCategories().contains(filter)).toList();
+        Set<String> foreignSources = nodes.stream()
+                .map(Node::getForeignSource)
+                .collect(Collectors.toSet());
+
+        fsFiIpAddressMap.clear();
+        foreignSources.forEach(fs -> {
+            var requisition = requisitionRepository.getDeployedRequisition(fs);
+            if (requisition == null) {
+                LOG.warn("run: no deployed requisition for foreignSource: {}", fs);
+                return;
+            }
+            requisition.getNodes().stream()
+                    .filter(rn -> rn.getInterfaces() != null && !rn.getInterfaces().isEmpty())
+                    .forEach(rn -> fsFiIpAddressMap.put(
+                            getAssetTag(fs, rn.getForeignId()),
+                            rn.getInterfaces().getFirst().getIpAddress().getHostAddress()
+                    ));
+        });
+
+        nodes.forEach(this::sendAsset);
     }
 
 }
