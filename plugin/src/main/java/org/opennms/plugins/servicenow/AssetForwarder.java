@@ -351,9 +351,38 @@ public class AssetForwarder implements Runnable {
         };
     }
 
+    private void pruneCache(Set<String> currentAssetTags) {
+        Set<String> staleKeys = hashCache.keySet().stream()
+                .filter(k -> !currentAssetTags.contains(k))
+                .collect(Collectors.toSet());
+        if (staleKeys.isEmpty()) {
+            return;
+        }
+        LOG.info("pruneCache: removing {} stale entries: {}", staleKeys.size(), staleKeys);
+        staleKeys.forEach(hashCache::remove);
+        Properties hashProps = new Properties();
+        hashProps.putAll(hashCache);
+        try (OutputStream out = Files.newOutputStream(Paths.get(assetCacheFile))) {
+            hashProps.store(out, null);
+        } catch (IOException e) {
+            LOG.error("pruneCache: failed to write cache file {}", assetCacheFile, e);
+        }
+        staleKeys.forEach(dataCache::remove);
+        Properties dataProps = new Properties();
+        dataProps.putAll(dataCache);
+        try (OutputStream out = Files.newOutputStream(Paths.get(assetDataCacheFile))) {
+            dataProps.store(out, null);
+        } catch (IOException e) {
+            LOG.error("pruneCache: failed to write data cache file {}", assetDataCacheFile, e);
+        }
+    }
+
     @Override
     public void run() {
         List<Node> nodes = nodeDao.getNodes().stream().filter(n -> n.getCategories().contains(filter)).toList();
+        Set<String> currentAssetTags = nodes.stream().map(AssetForwarder::getAssetTag).collect(Collectors.toSet());
+        pruneCache(currentAssetTags);
+
         Set<String> foreignSources = nodes.stream()
                 .map(Node::getForeignSource)
                 .collect(Collectors.toSet());
@@ -373,7 +402,10 @@ public class AssetForwarder implements Runnable {
                     ));
         });
 
+        LOG.debug("run: AssetTagIpAddressMap: {}", fsFiIpAddressMap);
         nodes.forEach(this::sendAsset);
+
+        fsFiIpAddressMap.clear();
     }
 
 }
