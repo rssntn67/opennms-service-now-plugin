@@ -18,6 +18,9 @@ import org.opennms.plugins.servicenow.model.TipoCollegamento;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -49,7 +52,10 @@ public class AssetForwarder implements Runnable {
     private final EventForwarder eventForwarder;
     private final RequisitionRepository requisitionRepository;
     private final String assetCacheFile;
+    private final String assetDataCacheFile;
     private final Map<String, String> hashCache = new HashMap<>();
+    private final Map<String, String> dataCache = new HashMap<>();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final Map<String, String> fsFiIpAddressMap = new HashMap<>();
     private static final String UEI_PREFIX = "uei.opennms.org/opennms-service-nowPlugin";
@@ -82,7 +88,9 @@ public class AssetForwarder implements Runnable {
         this.eventForwarder = Objects.requireNonNull(eventForwarder);
         this.requisitionRepository = Objects.requireNonNull(requisitionRepository);
         this.assetCacheFile = Objects.requireNonNull(assetCacheFile);
+        this.assetDataCacheFile = assetCacheFile + ".data";
         loadCache();
+        loadDataCache();
         LOG.info("init: filterAccessPoint: {}, filterSwitch: {}, filterFirewall: {}, filterModemLte: {}, filterModemXdsl: {}",
                 this.filterAccessPoint, this.filterSwitch, this.filterFirewall, this.filterModemLte, this.filterModemXdsl);
     }
@@ -123,6 +131,42 @@ public class AssetForwarder implements Runnable {
             props.store(out, null);
         } catch (IOException e) {
             LOG.error("updateCache: failed to write cache file {}", assetCacheFile, e);
+        }
+    }
+
+    private void loadDataCache() {
+        Path path = Paths.get(assetDataCacheFile);
+        if (!Files.exists(path)) {
+            LOG.info("loadDataCache: data cache file not found, starting fresh: {}", assetDataCacheFile);
+            return;
+        }
+        Properties props = new Properties();
+        try (InputStream in = Files.newInputStream(path)) {
+            props.load(in);
+            props.forEach((k, v) -> dataCache.put((String) k, (String) v));
+            LOG.info("loadDataCache: loaded {} entries from {}", dataCache.size(), assetDataCacheFile);
+        } catch (IOException e) {
+            LOG.warn("loadDataCache: failed to read data cache file {}, starting fresh", assetDataCacheFile, e);
+        }
+    }
+
+    private void updateDataCache(String assetTag, String json) {
+        dataCache.put(assetTag, json);
+        Properties props = new Properties();
+        props.putAll(dataCache);
+        try (OutputStream out = Files.newOutputStream(Paths.get(assetDataCacheFile))) {
+            props.store(out, null);
+        } catch (IOException e) {
+            LOG.error("updateDataCache: failed to write data cache file {}", assetDataCacheFile, e);
+        }
+    }
+
+    private String toJson(Object obj) {
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (JsonProcessingException e) {
+            LOG.error("toJson: failed to serialize {}", obj, e);
+            return "";
         }
     }
 
@@ -187,6 +231,7 @@ public class AssetForwarder implements Runnable {
                     accessPoint,
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             updateCache(accessPoint.getAssetTag(), accessPoint.hashCode());
+            updateDataCache(accessPoint.getAssetTag(), toJson(accessPoint));
             eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                     .setUei(SEND_ASSET_SUCCESSFUL_UEI)
                     .setNodeId(node.getId())
@@ -219,6 +264,7 @@ public class AssetForwarder implements Runnable {
                     networkDevice,
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             updateCache(networkDevice.getAssetTag(), networkDevice.hashCode());
+            updateDataCache(networkDevice.getAssetTag(), toJson(networkDevice));
             eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                     .setUei(SEND_ASSET_SUCCESSFUL_UEI)
                     .setNodeId(node.getId())
