@@ -51,10 +51,12 @@ public class AssetForwarder implements Runnable {
     private final EdgeService edgeService;
     private final EventForwarder eventForwarder;
     private final RequisitionRepository requisitionRepository;
-    private final String assetCacheFile;
-    private final String assetDataCacheFile;
+    private final String hashCacheFile;
+    private final String networkDeviceCacheFile;
+    private final String accessPointCacheFile;
     private final Map<String, String> hashCache = new HashMap<>();
-    private final Map<String, String> dataCache = new HashMap<>();
+    private final Map<String, String> accessPointMap = new HashMap<>();
+    private final Map<String, String> networkDeviceMap = new HashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final Map<String, String> fsFiIpAddressMap = new HashMap<>();
@@ -74,7 +76,7 @@ public class AssetForwarder implements Runnable {
                           EdgeService edgeservice,
                           RequisitionRepository requisitionRepository,
                           EventForwarder eventForwarder,
-                          String assetCacheFile) {
+                          String assetCacheFilePrefix) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
         this.filter= Objects.requireNonNull(filter);
@@ -87,12 +89,16 @@ public class AssetForwarder implements Runnable {
         this.edgeService = Objects.requireNonNull(edgeservice);
         this.eventForwarder = Objects.requireNonNull(eventForwarder);
         this.requisitionRepository = Objects.requireNonNull(requisitionRepository);
-        this.assetCacheFile = Objects.requireNonNull(assetCacheFile);
-        this.assetDataCacheFile = assetCacheFile + ".data";
-        loadCache();
-        loadDataCache();
+        this.hashCacheFile = assetCacheFilePrefix+".properties";
+        this.networkDeviceCacheFile = assetCacheFilePrefix+"-NetworkDevice.properties";
+        this.accessPointCacheFile = assetCacheFilePrefix+"-AccessPoint.properties";
+
         LOG.info("init: filterAccessPoint: {}, filterSwitch: {}, filterFirewall: {}, filterModemLte: {}, filterModemXdsl: {}",
                 this.filterAccessPoint, this.filterSwitch, this.filterFirewall, this.filterModemLte, this.filterModemXdsl);
+
+        loadCache();
+        loadNetworkDeviceCache();
+        loadAccessPointCache();
     }
 
     private static String getAssetTag(Node node) {
@@ -104,61 +110,106 @@ public class AssetForwarder implements Runnable {
     }
 
     private void loadCache() {
-        Path path = Paths.get(assetCacheFile);
+        Path path = Paths.get(hashCacheFile);
         if (!Files.exists(path)) {
-            LOG.info("loadCache: cache file not found, starting fresh: {}", assetCacheFile);
+            LOG.info("loadCache: hash cache file not found, starting fresh: {}", hashCacheFile);
             return;
         }
         Properties props = new Properties();
         try (InputStream in = Files.newInputStream(path)) {
             props.load(in);
-            props.forEach((k, v) -> hashCache.put((String) k, (String) v));
-            LOG.info("loadCache: loaded {} entries from {}", hashCache.size(), assetCacheFile);
+            props.forEach((k, v) -> hashCache.put((String) k,  (String) v));
+            LOG.info("loadCache: loaded {} entries from {}", hashCache.size(), hashCacheFile);
         } catch (IOException e) {
-            LOG.warn("loadCache: failed to read cache file {}, starting fresh", assetCacheFile, e);
+            LOG.warn("loadCache: failed to read cache file {}, starting fresh", hashCacheFile, e);
+        }
+    }
+
+    private void loadNetworkDeviceCache() {
+        Path path = Paths.get(networkDeviceCacheFile);
+        if (!Files.exists(path)) {
+            LOG.info("loadNetworkDeviceCache: cache file not found, starting fresh: {}", networkDeviceCacheFile);
+            return;
+        }
+        Properties props = new Properties();
+        try (InputStream in = Files.newInputStream(path)) {
+            props.load(in);
+            props.forEach((k, v) -> networkDeviceMap.put((String) k,  (String) v));
+            LOG.info("loadNetworkDeviceCache: loaded {} entries from {}", networkDeviceMap.size(), networkDeviceCacheFile);
+        } catch (IOException e) {
+            LOG.warn("loadNetworkDeviceCache: failed to read cache file {}, starting fresh", networkDeviceCacheFile, e);
+        }
+    }
+
+    private void loadAccessPointCache() {
+        Path path = Paths.get(accessPointCacheFile);
+        if (!Files.exists(path)) {
+            LOG.info("loadAccessPointCache: cache file not found, starting fresh: {}", accessPointCacheFile);
+            return;
+        }
+        Properties props = new Properties();
+        try (InputStream in = Files.newInputStream(path)) {
+            props.load(in);
+            props.forEach((k, v) -> accessPointMap.put((String) k,  (String) v));
+            LOG.info("accessPointCachePath: loaded {} entries from {}", accessPointMap.size(), accessPointCacheFile);
+        } catch (IOException e) {
+            LOG.warn("accessPointCachePath: failed to read cache file {}, starting fresh", accessPointCacheFile, e);
         }
     }
 
     private boolean isUnchanged(String assetTag, int hash) {
-        return String.valueOf(hash).equals(hashCache.get(assetTag));
+            return String.valueOf(hash).equals(hashCache.get(assetTag));
     }
 
     private void updateCache(String assetTag, int hash) {
         hashCache.put(assetTag, String.valueOf(hash));
         Properties props = new Properties();
         props.putAll(hashCache);
-        try (OutputStream out = Files.newOutputStream(Paths.get(assetCacheFile))) {
+        try (OutputStream out = Files.newOutputStream(Paths.get(hashCacheFile))) {
             props.store(out, null);
         } catch (IOException e) {
-            LOG.error("updateCache: failed to write cache file {}", assetCacheFile, e);
+            LOG.error("updateCache: failed to write cache file {}", hashCacheFile, e);
         }
     }
 
-    private void loadDataCache() {
-        Path path = Paths.get(assetDataCacheFile);
-        if (!Files.exists(path)) {
-            LOG.info("loadDataCache: data cache file not found, starting fresh: {}", assetDataCacheFile);
-            return;
-        }
+    private void updateDataCache(NetworkDevice networkDevice) {
+        networkDeviceMap.put(networkDevice.getAssetTag(), toJson(networkDevice));
         Properties props = new Properties();
-        try (InputStream in = Files.newInputStream(path)) {
-            props.load(in);
-            props.forEach((k, v) -> dataCache.put((String) k, (String) v));
-            LOG.info("loadDataCache: loaded {} entries from {}", dataCache.size(), assetDataCacheFile);
+        props.putAll(networkDeviceMap);
+        try (OutputStream out = Files.newOutputStream(Paths.get(networkDeviceCacheFile))) {
+            props.store(out, null);
         } catch (IOException e) {
-            LOG.warn("loadDataCache: failed to read data cache file {}, starting fresh", assetDataCacheFile, e);
+            LOG.error("updateDataCache: failed to write data cache file {}", networkDeviceCacheFile, e);
         }
     }
 
-    private void updateDataCache(String assetTag, String json) {
-        dataCache.put(assetTag, json);
+    private void updateDataCache(AccessPoint accessPoint) {
+        accessPointMap.put(accessPoint.getAssetTag(), toJson(accessPoint));
         Properties props = new Properties();
-        props.putAll(dataCache);
-        try (OutputStream out = Files.newOutputStream(Paths.get(assetDataCacheFile))) {
+        props.putAll(accessPointMap);
+        try (OutputStream out = Files.newOutputStream(Paths.get(accessPointCacheFile))) {
             props.store(out, null);
         } catch (IOException e) {
-            LOG.error("updateDataCache: failed to write data cache file {}", assetDataCacheFile, e);
+            LOG.error("updateDataCache: failed to write data cache file {}", accessPointCacheFile, e);
         }
+    }
+
+    private NetworkDevice toNetworkDevice(String json) {
+        try {
+            return objectMapper.readValue(json, NetworkDevice.class);
+        } catch (JsonProcessingException e) {
+            LOG.error("fromJson: failed to unserialize {}", json, e);
+        }
+        return null;
+    }
+
+    private AccessPoint toAccessPoint(String json) {
+        try {
+            return objectMapper.readValue(json, AccessPoint.class);
+        } catch (JsonProcessingException e) {
+            LOG.error("fromJson: failed to unserialize {}", json, e);
+        }
+        return null;
     }
 
     private String toJson(Object obj) {
@@ -231,7 +282,7 @@ public class AssetForwarder implements Runnable {
                     accessPoint,
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             updateCache(accessPoint.getAssetTag(), accessPoint.hashCode());
-            updateDataCache(accessPoint.getAssetTag(), toJson(accessPoint));
+            updateDataCache(accessPoint);
             eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                     .setUei(SEND_ASSET_SUCCESSFUL_UEI)
                     .setNodeId(node.getId())
@@ -264,7 +315,7 @@ public class AssetForwarder implements Runnable {
                     networkDevice,
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             updateCache(networkDevice.getAssetTag(), networkDevice.hashCode());
-            updateDataCache(networkDevice.getAssetTag(), toJson(networkDevice));
+            updateDataCache(networkDevice);
             eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                     .setUei(SEND_ASSET_SUCCESSFUL_UEI)
                     .setNodeId(node.getId())
@@ -351,37 +402,37 @@ public class AssetForwarder implements Runnable {
         };
     }
 
-    private void pruneCache(Set<String> currentAssetTags) {
-        Set<String> staleKeys = hashCache.keySet().stream()
+    private Set<String> pruneCache(Set<String> currentAssetTags) {
+        return hashCache.keySet().stream()
                 .filter(k -> !currentAssetTags.contains(k))
                 .collect(Collectors.toSet());
-        if (staleKeys.isEmpty()) {
-            return;
-        }
-        LOG.info("pruneCache: removing {} stale entries: {}", staleKeys.size(), staleKeys);
-        staleKeys.forEach(hashCache::remove);
-        Properties hashProps = new Properties();
-        hashProps.putAll(hashCache);
-        try (OutputStream out = Files.newOutputStream(Paths.get(assetCacheFile))) {
-            hashProps.store(out, null);
-        } catch (IOException e) {
-            LOG.error("pruneCache: failed to write cache file {}", assetCacheFile, e);
-        }
-        staleKeys.forEach(dataCache::remove);
-        Properties dataProps = new Properties();
-        dataProps.putAll(dataCache);
-        try (OutputStream out = Files.newOutputStream(Paths.get(assetDataCacheFile))) {
-            dataProps.store(out, null);
-        } catch (IOException e) {
-            LOG.error("pruneCache: failed to write data cache file {}", assetDataCacheFile, e);
-        }
     }
 
     @Override
     public void run() {
         List<Node> nodes = nodeDao.getNodes().stream().filter(n -> n.getCategories().contains(filter)).toList();
         Set<String> currentAssetTags = nodes.stream().map(AssetForwarder::getAssetTag).collect(Collectors.toSet());
-        pruneCache(currentAssetTags);
+        pruneCache(currentAssetTags).forEach(assetTag -> {
+            if (networkDeviceMap.containsKey(assetTag)) {
+                NetworkDevice nd = toNetworkDevice(networkDeviceMap.get(assetTag));
+                if (nd == null) {
+                    LOG.error("run: no data got NetworkElement: {}", assetTag);
+                    return;
+                }
+                nd.setInstallStatus(InstallStatus.DISATTIVO);
+                sendNetworkDevice(null, nd);
+                return;
+            }
+            if (accessPointMap.containsKey(assetTag)) {
+                AccessPoint ap = toAccessPoint(accessPointMap.get(assetTag));
+                if (ap == null) {
+                    LOG.error("run: no data got AcccessPoint: {}", assetTag);
+                    return;
+                }
+                ap.setInstallStatus(InstallStatus.DISATTIVO);
+                sendAccessPoint(null, ap);
+            }
+        });
 
         Set<String> foreignSources = nodes.stream()
                 .map(Node::getForeignSource)
