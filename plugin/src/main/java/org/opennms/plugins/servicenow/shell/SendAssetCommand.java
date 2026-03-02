@@ -90,6 +90,7 @@ public class SendAssetCommand implements Action {
                         .setGeolocation(ImmutableGeolocation.newBuilder()
                                 .setLatitude(45.4642)
                                 .setLongitude(9.1900)
+                                .setAddress1("Milano da qualche parte")
                                 .build())
                         .build())
                 .build();
