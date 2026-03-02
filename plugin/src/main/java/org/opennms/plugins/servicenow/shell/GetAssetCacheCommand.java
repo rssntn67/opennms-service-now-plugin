@@ -7,12 +7,7 @@ import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.apache.karaf.shell.api.console.Session;
 import org.apache.karaf.shell.support.table.Col;
 import org.apache.karaf.shell.support.table.ShellTable;
-import org.opennms.integration.api.v1.dao.NodeDao;
-import org.opennms.integration.api.v1.model.Node;
 import org.opennms.plugins.servicenow.AssetForwarder;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Command(scope = "opennms-service-now", name = "get-asset-cache", description = "Print the asset cache.")
 @Service
@@ -24,9 +19,6 @@ public class GetAssetCacheCommand implements Action {
     @Reference
     private AssetForwarder forwarder;
 
-    @Reference
-    private NodeDao nodeDao;
-
     @Override
     public Object execute() {
         final var table = new ShellTable()
@@ -34,13 +26,9 @@ public class GetAssetCacheCommand implements Action {
                 .column(new Col("ForeignSource"))
                 .column(new Col("ForeignId"))
                 .column(new Col("Label"))
-                .column(new Col("NodeId"))
+                .column(new Col("Type"))
+                .column(new Col("Detail"))
                 .column(new Col("ParentLabel"));
-
-        Map<String, Node> nodeIndex = new HashMap<>();
-        for (Node n : nodeDao.getNodes()) {
-            nodeIndex.put(n.getForeignSource() + "::" + n.getForeignId(), n);
-        }
 
         forwarder.getNetworkDeviceCache().forEach((assetTag, json) -> {
             var nd = forwarder.toNetworkDevice(json);
@@ -48,13 +36,12 @@ public class GetAssetCacheCommand implements Action {
             String[] parts = assetTag.split("::", 2);
             String fs = parts.length > 0 ? parts[0] : "";
             String fid = parts.length > 1 ? parts[1] : "";
-            Node node = nodeIndex.get(assetTag);
-            String nodeId = node != null ? String.valueOf(node.getId()) : "";
             final var row = table.addRow();
             row.addContent(fs);
             row.addContent(fid);
             row.addContent(nd.getName());
-            row.addContent(nodeId);
+            row.addContent("NetworkDevice");
+            row.addContent(nd.getTipoApparato() != null ? nd.getTipoApparato().name() : "");
             row.addContent(nd.getParentalNode());
         });
 
@@ -64,13 +51,12 @@ public class GetAssetCacheCommand implements Action {
             String[] parts = assetTag.split("::", 2);
             String fs = parts.length > 0 ? parts[0] : "";
             String fid = parts.length > 1 ? parts[1] : "";
-            Node node = nodeIndex.get(assetTag);
-            String nodeId = node != null ? String.valueOf(node.getId()) : "";
             final var row = table.addRow();
             row.addContent(fs);
             row.addContent(fid);
             row.addContent(ap.getName());
-            row.addContent(nodeId);
+            row.addContent("AccessPoint");
+            row.addContent(ap.getTipoCollegamento() != null ? ap.getTipoCollegamento().name() : "");
             row.addContent(ap.getParentalNode());
         });
 
