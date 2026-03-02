@@ -194,6 +194,20 @@ public class AssetForwarder implements Runnable {
         }
     }
 
+    public void clearCache() {
+        hashCache.clear();
+        networkDeviceMap.clear();
+        accessPointMap.clear();
+        for (String file : new String[]{hashCacheFile, networkDeviceCacheFile, accessPointCacheFile}) {
+            try {
+                Files.deleteIfExists(Paths.get(file));
+                LOG.info("clearCache: deleted {}", file);
+            } catch (IOException e) {
+                LOG.error("clearCache: failed to delete {}", file, e);
+            }
+        }
+    }
+
     public Map<String, String> getNetworkDeviceCache() {
         return networkDeviceMap;
     }
