@@ -194,7 +194,15 @@ public class AssetForwarder implements Runnable {
         }
     }
 
-    private NetworkDevice toNetworkDevice(String json) {
+    public Map<String, String> getNetworkDeviceCache() {
+        return networkDeviceMap;
+    }
+
+    public Map<String, String> getAccessPointCache() {
+        return accessPointMap;
+    }
+
+    public NetworkDevice toNetworkDevice(String json) {
         try {
             return objectMapper.readValue(json, NetworkDevice.class);
         } catch (JsonProcessingException e) {
@@ -203,7 +211,7 @@ public class AssetForwarder implements Runnable {
         return null;
     }
 
-    private AccessPoint toAccessPoint(String json) {
+    public AccessPoint toAccessPoint(String json) {
         try {
             return objectMapper.readValue(json, AccessPoint.class);
         } catch (JsonProcessingException e) {
