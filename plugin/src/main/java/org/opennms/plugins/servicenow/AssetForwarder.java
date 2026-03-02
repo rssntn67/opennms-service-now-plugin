@@ -424,6 +424,32 @@ public class AssetForwarder implements Runnable {
         };
     }
 
+    public boolean disableAsset(String foreignSource, String foreignId) {
+        String assetTag = getAssetTag(foreignSource, foreignId);
+        if (networkDeviceMap.containsKey(assetTag)) {
+            NetworkDevice nd = toNetworkDevice(networkDeviceMap.get(assetTag));
+            if (nd == null) {
+                LOG.error("disableAsset: failed to deserialize NetworkDevice for {}", assetTag);
+                return false;
+            }
+            nd.setInstallStatus(InstallStatus.DISATTIVO);
+            sendNetworkDevice(null, nd);
+            return true;
+        }
+        if (accessPointMap.containsKey(assetTag)) {
+            AccessPoint ap = toAccessPoint(accessPointMap.get(assetTag));
+            if (ap == null) {
+                LOG.error("disableAsset: failed to deserialize AccessPoint for {}", assetTag);
+                return false;
+            }
+            ap.setInstallStatus(InstallStatus.DISATTIVO);
+            sendAccessPoint(null, ap);
+            return true;
+        }
+        LOG.warn("disableAsset: asset not found in cache: {}", assetTag);
+        return false;
+    }
+
     private Set<String> pruneCache(Set<String> currentAssetTags) {
         return hashCache.keySet().stream()
                 .filter(k -> !currentAssetTags.contains(k))
