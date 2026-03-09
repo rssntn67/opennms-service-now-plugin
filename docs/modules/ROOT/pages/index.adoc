@@ -1,0 +1,9 @@
+= User's Guide to the _OpenNMS ServiceNow Plugin_
+:imagesdir: ../assets/images
+:!sectids:
+
+ServiceNow is an IT service management platform widely used for incident, change, and asset management.
+This plugin integrates OpenNMS with ServiceNow, enabling automatic forwarding of network alarms and asset inventory data to ServiceNow via its REST API.
+
+When a network alarm is raised in OpenNMS, the plugin filters it by UEI and node category, enriches it with topology information, and sends an alert record to ServiceNow.
+In parallel, the plugin periodically discovers network devices and access points from OpenNMS node inventory and synchronises them as assets in ServiceNow, maintaining a local cache to send only changes.

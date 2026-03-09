@@ -1,0 +1,62 @@
+= Terminology
+:imagesdir: ../assets/images
+
+This section introduces the key terms used throughout this documentation.
+
+ServiceNow::
+A cloud-based IT service management (ITSM) platform used for incident, change, problem, and asset management.
+This plugin communicates with ServiceNow through its REST API.
+
+OAuth2 Client Credentials::
+The authentication mechanism used by the plugin.
+A client ID and client secret are exchanged for a short-lived bearer token at a configured token endpoint.
+The plugin caches the token and refreshes it automatically before expiry.
+
+KAR (Karaf Archive)::
+A packaging format for Apache Karaf that bundles OSGi features and their dependencies into a single deployable file.
+The plugin is distributed as a `.kar` file.
+
+OSGi Bundle::
+The deployment unit for Java code inside Apache Karaf.
+Each bundle is a JAR with OSGi metadata declaring its imports and exports.
+
+Blueprint::
+The OSGi dependency-injection framework (Apache Aries Blueprint) used by this plugin to wire together its components and inject configuration properties.
+
+UEI (Unique Event Identifier)::
+A string that uniquely identifies an OpenNMS event type (e.g. `uei.opennms.org/nodes/nodeDown`).
+The alarm forwarder uses a set of UEIs to decide which alarms to forward.
+
+Node Category::
+A label assigned to nodes in OpenNMS to group them (e.g. `Minnovo`).
+The plugin filters alarms and assets by configured category values.
+
+Foreign Source / Foreign ID::
+The pair that uniquely identifies a node in an OpenNMS requisition.
+Asset cache entries and shell commands use `foreignSource::foreignId` as the cache key.
+
+EdgeService::
+The plugin component responsible for building a topology map of the monitored network.
+It traverses `EdgeDao` data up to a configurable depth and exposes a `getParent()` method used during alarm enrichment.
+
+AlarmForwarder::
+The plugin component that listens for OpenNMS alarm lifecycle events and forwards qualifying alarms to ServiceNow.
+
+AssetForwarder::
+The plugin component that runs on a schedule, discovers network assets from the OpenNMS inventory, and synchronises them to ServiceNow.
+It maintains an on-disk cache to send only new or changed assets.
+
+AccessPoint::
+A WiFi access-point asset type, identified in OpenNMS by the category configured in `filter.accesspoint`.
+
+NetworkDevice::
+A generic network-device asset type covering switches, firewalls, LTE modems, and xDSL modems.
+Each sub-type is identified by a separate node category.
+
+InstallStatus::
+An asset field sent to ServiceNow indicating whether a device is active, disabled, or suspended.
+Values: `ATTIVO` (1), `DISATTIVO` (7), `SOSPESO` (100).
+
+Secure Credentials Vault (SCV)::
+The OpenNMS facility for storing sensitive credentials encrypted at rest.
+The plugin stores ServiceNow connection details in the SCV under the prefix `servicenow_connection_`.

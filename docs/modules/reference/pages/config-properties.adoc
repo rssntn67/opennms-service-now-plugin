@@ -1,0 +1,83 @@
+= Configuration Properties
+:imagesdir: ../assets/images
+
+Runtime properties are configured in `/opt/opennms/etc/org.opennms.plugins.servicenow.cfg` and injected into the plugin via OSGi Blueprint.
+
+.Configuration properties for `org.opennms.plugins.servicenow`
+[options="header, autowidth", cols="3,2,2"]
+|===
+| Name
+| Default
+| Description
+
+| `filter`
+| `Minnovo`
+| Node category for alarm forwarding. Only alarms from nodes with this category are forwarded.
+
+| `filter.accesspoint`
+| `Wifi`
+| Node category identifying WiFi access points for asset synchronisation.
+
+| `filter.networkdevice.switch`
+| `Switch`
+| Node category identifying switches.
+
+| `filter.networkdevice.firewall`
+| `Firewall`
+| Node category identifying firewalls.
+
+| `filter.networkdevice.modem.lte`
+| `LTE`
+| Node category identifying LTE modems.
+
+| `filter.networkdevice.modem.xdsl`
+| `XDSL`
+| Node category identifying xDSL modems.
+
+| `token.endpoint`
+| `token`
+| Path appended to the ServiceNow base URL to obtain an OAuth2 bearer token.
+
+| `alert.endpoint`
+| _(instance-specific)_
+| Full REST path for the alarm alert endpoint.
+
+| `asset.endpoint`
+| _(instance-specific)_
+| Full REST path for the asset creation/update endpoint.
+
+| `service.initial.delay`
+| `5000`
+| Initial delay in milliseconds before the EdgeService scheduler first runs.
+The AssetForwarder starts after `10 × service.initial.delay`.
+
+| `service.delay`
+| `3600000`
+| Periodic interval in milliseconds between scheduler runs (1 hour).
+
+| `service.iteration`
+| `10`
+| Maximum depth for topology graph traversal in `EdgeService`.
+
+| `service.excluded.fs`
+| `NODO`
+| Foreign source to exclude from topology discovery.
+
+| `metadata.context`
+| `requisition`
+| Node metadata context used for topology lookups.
+
+| `metadata.parent.key`
+| `parent`
+| Metadata key identifying the parent node.
+
+| `metadata.gateway.key`
+| `gateway`
+| Metadata key identifying the gateway node.
+
+| `asset.cache.file.prefix`
+| `/opt/opennms/etc/servicenow-asset-cache`
+| File path prefix for on-disk asset caches.
+Three files are created: `<prefix>.properties`, `<prefix>-NetworkDevice.properties`, `<prefix>-AccessPoint.properties`.
+
+|===

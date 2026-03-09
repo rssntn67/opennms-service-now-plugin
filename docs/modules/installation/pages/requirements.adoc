@@ -1,0 +1,19 @@
+= Requirements
+:imagesdir: ../assets/images
+
+== OpenNMS
+
+The OpenNMS ServiceNow Plugin requires OpenNMS Horizon 31+ or OpenNMS Meridian 2023+.
+
+== ServiceNow
+
+A ServiceNow instance with:
+
+* An OAuth2 application registry configured (client ID + client secret)
+* A token endpoint accessible from the OpenNMS server
+* REST API endpoints for alert and asset creation/update
+
+== Network
+
+The OpenNMS server must be able to reach the ServiceNow REST API over HTTPS.
+If the ServiceNow instance uses a self-signed or untrusted certificate, SSL validation can be disabled per-connection (not recommended in production).

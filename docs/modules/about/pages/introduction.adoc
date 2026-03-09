@@ -1,0 +1,19 @@
+= Introduction
+:imagesdir: ../assets/images
+
+The OpenNMS ServiceNow Plugin bridges OpenNMS network monitoring with the ServiceNow IT service management platform.
+
+It provides two main integration flows:
+
+Alarm forwarding::
+OpenNMS alarms matching a configured UEI list and node category are forwarded to ServiceNow as alert records.
+Topology enrichment via the `EdgeService` adds a parent-node label to each alert, giving ServiceNow context about the network hierarchy.
+
+Asset synchronisation::
+Network devices and access points discovered in the OpenNMS node inventory are periodically synchronised to ServiceNow as CI (Configuration Item) assets.
+A hash-based cache ensures that only new or changed assets are sent, reducing unnecessary API calls.
+
+Authentication against the ServiceNow REST API uses the OAuth2 client-credentials flow.
+Credentials are stored securely in the OpenNMS Secure Credentials Vault and can be managed entirely through Karaf shell commands.
+
+The plugin is deployed as an OSGi bundle into the Apache Karaf container embedded in OpenNMS, and is packaged as a KAR (Karaf Archive) file for straightforward installation.

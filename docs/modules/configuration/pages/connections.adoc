@@ -1,0 +1,78 @@
+= Connections
+:imagesdir: ../assets/images
+
+Before the plugin can forward alarms or assets, you must configure a connection to the ServiceNow instance.
+A connection holds the ServiceNow base URL, OAuth2 client credentials (username and password), and optional SSL settings.
+Connections are stored in the OpenNMS Secure Credentials Vault under the prefix `servicenow_connection_`.
+
+All connection management is done through Karaf shell commands.
+
+== Connect to the Karaf shell
+
+[source, console]
+----
+ssh -p 8101 admin@localhost
+----
+
+== Add a connection
+
+[source, console]
+----
+admin@opennms()> opennms-service-now:add-connection --help
+DESCRIPTION
+        opennms-service-now:add-connection
+
+    Add a ServiceNow connection
+
+SYNTAX
+        opennms-service-now:add-connection [options] url username password
+
+ARGUMENTS
+        url
+                ServiceNow base URL (e.g. https://instance.service-now.com)
+                (required)
+        username
+                OAuth2 client ID
+                (required)
+        password
+                OAuth2 client secret
+                (required)
+
+OPTIONS
+        -i, --ignore-ssl-certificate-validation
+                Disable SSL certificate validation (use only in development)
+        --help
+                Display this help message
+----
+
+.Example
+[source, console]
+----
+admin@opennms()> opennms-service-now:add-connection \
+    https://myinstance.service-now.com myClientId myClientSecret
+----
+
+== View the current connection
+
+[source, console]
+----
+admin@opennms()> opennms-service-now:get-connection
+----
+
+== Validate the connection
+
+Attempts an OAuth2 token exchange to verify that the stored credentials are valid:
+
+[source, console]
+----
+admin@opennms()> opennms-service-now:validate-connection
+----
+
+== Delete the connection
+
+[source, console]
+----
+admin@opennms()> opennms-service-now:delete-connection
+----
+
+NOTE: After deleting the connection, the plugin will not be able to forward alarms or assets until a new connection is added.

@@ -1,0 +1,206 @@
+= Karaf Shell Commands
+:imagesdir: ../assets/images
+
+All commands use the scope `opennms-service-now`.
+Connect to the Karaf shell with:
+
+[source, console]
+----
+ssh -p 8101 admin@localhost
+----
+
+== Connection commands
+
+=== add-connection
+
+Add a ServiceNow connection to the Secure Credentials Vault.
+
+Syntax: `opennms-service-now:add-connection [options] url username password`
+
+.Arguments
+[options="header, autowidth", cols="2,3"]
+|===
+| Argument
+| Description
+
+| `url`
+| ServiceNow base URL (e.g. `https://instance.service-now.com`)
+
+| `username`
+| OAuth2 client ID
+
+| `password`
+| OAuth2 client secret
+
+|===
+
+.Options
+[options="header, autowidth", cols="2,3"]
+|===
+| Option
+| Description
+
+| `-i, --ignore-ssl-certificate-validation`
+| Disable SSL certificate validation (development use only)
+
+|===
+
+=== get-connection
+
+Display the currently configured connection (URL and username; password is masked).
+
+Syntax: `opennms-service-now:get-connection`
+
+=== validate-connection
+
+Test the configured connection by performing an OAuth2 token exchange.
+
+Syntax: `opennms-service-now:validate-connection`
+
+=== delete-connection
+
+Remove the stored connection from the Secure Credentials Vault.
+
+Syntax: `opennms-service-now:delete-connection`
+
+== Alarm commands
+
+=== send-down-alarm
+
+Send a test `nodeDown` alarm to ServiceNow.
+
+Syntax: `opennms-service-now:send-down-alarm`
+
+=== send-up-alarm
+
+Send a test `nodeUp` alarm to ServiceNow.
+
+Syntax: `opennms-service-now:send-up-alarm`
+
+== Asset commands
+
+=== send-asset
+
+Send a single test asset to ServiceNow.
+
+Syntax: `opennms-service-now:send-asset foreignSource foreignId label parentLabel location ipAddress category`
+
+.Arguments
+[options="header, autowidth", cols="2,3"]
+|===
+| Argument
+| Description
+
+| `foreignSource`
+| Foreign source of the node
+
+| `foreignId`
+| Foreign ID of the node
+
+| `label`
+| Node label
+
+| `parentLabel`
+| Label of the parent node
+
+| `location`
+| Node location name
+
+| `ipAddress`
+| Primary IP address
+
+| `category`
+| Asset type: `Wifi`, `Switch`, `Firewall`, `ModemLte`, or `ModemXdsl`
+
+|===
+
+=== get-asset-cache
+
+Print the current asset cache contents as a formatted table.
+
+Syntax: `opennms-service-now:get-asset-cache`
+
+.Output columns
+[options="header, autowidth", cols="2,3"]
+|===
+| Column
+| Description
+
+| ForeignSource
+| Node foreign source
+
+| ForeignId
+| Node foreign ID
+
+| Label
+| Node label
+
+| Type
+| Asset type (`AccessPoint` or `NetworkDevice`)
+
+| Detail
+| Asset sub-type detail (e.g. `SWITCH`, `MODEM_LTE`)
+
+| ParentLabel
+| Parent node label
+
+|===
+
+=== clear-asset-cache
+
+Wipe all in-memory asset caches and delete the on-disk cache files.
+The next scheduled run will resend all assets.
+
+Syntax: `opennms-service-now:clear-asset-cache`
+
+=== disable-asset
+
+Mark a specific asset as `DISATTIVO` (disabled) in ServiceNow.
+
+Syntax: `opennms-service-now:disable-asset foreignSource foreignId`
+
+.Arguments
+[options="header, autowidth", cols="2,3"]
+|===
+| Argument
+| Description
+
+| `foreignSource`
+| Foreign source of the node
+
+| `foreignId`
+| Foreign ID of the node
+
+|===
+
+== Topology commands
+
+=== get-edge-map
+
+Display the full topology edge map built by `EdgeService`.
+
+Syntax: `opennms-service-now:get-edge-map`
+
+=== get-locations
+
+List all node locations known to the plugin.
+
+Syntax: `opennms-service-now:get-locations`
+
+=== get-parent
+
+Look up the parent node for a given node in the topology map.
+
+Syntax: `opennms-service-now:get-parent nodeId`
+
+=== get-gateways
+
+List all gateway nodes identified in the topology map.
+
+Syntax: `opennms-service-now:get-gateways`
+
+=== edge-service-run
+
+Manually trigger an immediate topology discovery run.
+
+Syntax: `opennms-service-now:edge-service-run`

@@ -1,0 +1,106 @@
+= Alarm Forwarding
+:imagesdir: ../assets/images
+
+The `AlarmForwarder` component listens for OpenNMS alarm lifecycle events and forwards qualifying alarms to ServiceNow.
+
+== How it works
+
+. When OpenNMS raises or clears an alarm, the `AlarmForwarder` is notified via the `AlarmLifecycleListener` interface.
+. On the first callback the plugin processes the full alarm snapshot; subsequent callbacks handle individual alarm updates.
+. Each alarm is checked against the UEI filter and the node-category filter (see xref:configuration:alarm-filters.adoc[Alarm Filters]).
+. For qualifying alarms, `EdgeService.getParent()` is called to enrich the alert with the parent-node label from the topology map.
+. The alarm is converted to an `Alert` DTO and sent to ServiceNow via the configured `alert.endpoint`.
+. A custom OpenNMS event is raised to record the outcome (success or failure).
+
+== Alert fields
+
+[options="header, autowidth", cols="2,3"]
+|===
+| Field
+| Description
+
+| `id`
+| OpenNMS alarm reduction key
+
+| `time`
+| Alarm event time
+
+| `source`
+| Node label
+
+| `type`
+| Alarm UEI
+
+| `severity`
+| OpenNMS severity mapped to ServiceNow severity levels
+
+| `description`
+| Alarm log message
+
+| `node`
+| OpenNMS node ID
+
+| `asset`
+| Asset tag from node metadata
+
+| `status`
+| `PROBLEM` for active alarms, `RESOLUTION` for cleared alarms
+
+| `parentalNodeLabel`
+| Label of the parent node as determined by `EdgeService`
+
+|===
+
+== Topology enrichment
+
+The `EdgeService` builds a parent-child topology map by traversing `EdgeDao` data up to `service.iteration` hops.
+It starts on a scheduled executor after an initial delay (`service.initial.delay`) and refreshes periodically (`service.delay`).
+The `PluginScheduler` manages this scheduling.
+
+You can force an immediate refresh from the Karaf shell:
+
+[source, console]
+----
+admin@opennms()> opennms-service-now:edge-service-run
+----
+
+You can inspect the current topology map:
+
+[source, console]
+----
+admin@opennms()> opennms-service-now:get-edge-map
+admin@opennms()> opennms-service-now:get-parent <nodeId>
+admin@opennms()> opennms-service-now:get-gateways
+----
+
+== Testing alarm forwarding
+
+You can send a test alarm to ServiceNow without waiting for a real network event:
+
+[source, console]
+----
+admin@opennms()> opennms-service-now:send-down-alarm
+admin@opennms()> opennms-service-now:send-up-alarm
+----
+
+== Result events
+
+After each forwarding attempt, the plugin raises one of the following OpenNMS events:
+
+[options="header, autowidth", cols="3,1,2"]
+|===
+| UEI
+| Severity
+| Meaning
+
+| `uei.opennms.org/plugin/servicenow/sendEventSuccessful`
+| Normal
+| Alert was successfully sent to ServiceNow
+
+| `uei.opennms.org/plugin/servicenow/sendEventFailed`
+| Critical
+| Alert could not be sent to ServiceNow
+
+|===
+
+See xref:reference:events.adoc[Custom Events] for details.

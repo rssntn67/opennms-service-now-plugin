@@ -1,0 +1,45 @@
+= Alarm Filters
+:imagesdir: ../assets/images
+
+The plugin only forwards alarms that match both a UEI filter and a node-category filter.
+
+== UEI filter
+
+The following alarm UEIs are forwarded by default:
+
+* `uei.opennms.org/nodes/nodeDown`
+* `uei.opennms.org/nodes/nodeUp`
+* `uei.opennms.org/nodes/interfaceDown`
+* `uei.opennms.org/nodes/interfaceUp`
+* `uei.opennms.org/nodes/nodeLostService` (ICMP only)
+* `uei.opennms.org/nodes/nodeRegainedService` (ICMP only)
+
+This list is hardcoded in `AlarmForwarder` and is not currently configurable at runtime.
+
+== Node category filter
+
+Only alarms from nodes belonging to the configured category are forwarded.
+The category is set via the `filter` property in `org.opennms.plugins.servicenow.cfg` (default: `Minnovo`).
+
+[source, properties]
+----
+filter = Minnovo
+----
+
+Nodes must be assigned this category in their requisition or through the OpenNMS web UI for their alarms to be forwarded.
+
+== Asset category filters
+
+Asset discovery uses separate category properties to identify each device type.
+Nodes must carry the corresponding category to be picked up by the `AssetForwarder`.
+
+[source, properties]
+----
+filter.accesspoint                = Wifi
+filter.networkdevice.switch       = Switch
+filter.networkdevice.firewall     = Firewall
+filter.networkdevice.modem.lte    = LTE
+filter.networkdevice.modem.xdsl   = XDSL
+----
+
+See xref:reference:config-properties.adoc[Config Properties] for the full list of configurable properties.

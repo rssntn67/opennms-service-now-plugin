@@ -1,0 +1,65 @@
+= Installation
+:imagesdir: ../assets/images
+
+== Deployment via KAR file
+
+Copy the provided KAR file to the OpenNMS server and place it in the deploy directory.
+
+[source, shell]
+----
+scp opennms-service-now-plugin-<VERSION>.kar \
+    tecnico@opennms.campus.comune.milano.it:/home/tecnico/KAR-SERVICENOW
+----
+
+On the OpenNMS server, move the KAR to the Karaf deploy directory:
+
+[source, shell]
+----
+cp /home/tecnico/KAR-SERVICENOW/opennms-service-now-plugin-<VERSION>.kar \
+   /opt/opennms/deploy/
+----
+
+Karaf will automatically detect the KAR and deploy its features.
+You can then install the feature from the Karaf shell:
+
+[source, console]
+----
+admin@opennms()> feature:install opennms-plugins-opennms-service-now
+----
+
+== Deploy from source
+
+Check out the repository and build with Maven:
+
+[source, shell]
+----
+mvn clean install
+----
+
+Add the feature repository and install the feature in the OpenNMS Karaf shell.
+Replace `<VERSION>` with the version you built.
+
+[source, console]
+----
+admin@opennms()> feature:repo-add mvn:org.opennms.plugins.servicenow/karaf-features/<VERSION>/xml
+admin@opennms()> feature:install opennms-plugins-opennms-service-now
+----
+
+== Persistent activation
+
+To ensure the feature is activated on future OpenNMS restarts, add a boot entry:
+
+[source, shell]
+----
+echo "opennms-plugins-opennms-service-now wait-for-kar=opennms-service-now-plugin" \
+  | sudo tee /opt/opennms/etc/featuresBoot.d/plugin-servicenow.boot
+----
+
+== Post-installation
+
+After installation, add a ServiceNow connection using the Karaf shell (see xref:configuration:connections.adoc[Connections]) and verify the plugin is running:
+
+[source, console]
+----
+admin@opennms()> opennms-service-now:validate-connection
+----

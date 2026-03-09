@@ -1,0 +1,48 @@
+= Custom Events
+:imagesdir: ../assets/images
+
+The plugin defines four custom OpenNMS events to track the outcome of alarm and asset forwarding operations.
+These events are loaded via the `EventConfExtension` mechanism from `plugin.ext.events.xml`.
+
+== Alarm forwarding events
+
+[options="header, autowidth", cols="4,1,3"]
+|===
+| UEI
+| Severity
+| Description
+
+| `uei.opennms.org/plugin/servicenow/sendEventSuccessful`
+| Normal
+| Raised when an alarm alert is successfully sent to ServiceNow.
+Includes alarm reduction key and node label parameters.
+Carries an alarm-clearing key to resolve any previous failure alarm.
+
+| `uei.opennms.org/plugin/servicenow/sendEventFailed`
+| Critical
+| Raised when an alarm alert cannot be sent to ServiceNow (HTTP error, network timeout, etc.).
+Carries an alarm reduction key so repeated failures produce a single alarm.
+
+|===
+
+== Asset forwarding events
+
+[options="header, autowidth", cols="4,1,3"]
+|===
+| UEI
+| Severity
+| Description
+
+| `uei.opennms.org/plugin/servicenow/sendAssetSuccessful`
+| Normal
+| Raised when an asset record is successfully sent to ServiceNow.
+Carries an alarm-clearing key to resolve any previous failure alarm for the same asset.
+
+| `uei.opennms.org/plugin/servicenow/sendAssetFailed`
+| Critical
+| Raised when an asset record cannot be sent to ServiceNow.
+Carries an alarm reduction key so repeated failures for the same asset produce a single alarm.
+
+|===
+
+NOTE: Success events clear the corresponding failure alarms automatically through the alarm-reduction/clearing-key mechanism built into OpenNMS event configuration.

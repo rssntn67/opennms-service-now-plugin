@@ -1,0 +1,116 @@
+= Asset Management
+:imagesdir: ../assets/images
+
+The `AssetForwarder` component periodically discovers network assets from the OpenNMS node inventory and synchronises them to ServiceNow as CI (Configuration Item) records.
+
+== Supported asset types
+
+[options="header, autowidth", cols="2,2,3"]
+|===
+| Type
+| ServiceNow class
+| OpenNMS category
+
+| Access Point (WiFi)
+| `AccessPoint`
+| Configured in `filter.accesspoint` (default: `Wifi`)
+
+| Switch
+| `NetworkDevice`
+| Configured in `filter.networkdevice.switch` (default: `Switch`)
+
+| Firewall
+| `NetworkDevice`
+| Configured in `filter.networkdevice.firewall` (default: `Firewall`)
+
+| LTE Modem
+| `NetworkDevice`
+| Configured in `filter.networkdevice.modem.lte` (default: `LTE`)
+
+| xDSL Modem
+| `NetworkDevice`
+| Configured in `filter.networkdevice.modem.xdsl` (default: `XDSL`)
+
+|===
+
+== Discovery and synchronisation
+
+. The `PluginScheduler` triggers `AssetForwarder` on a schedule (starts at `10 × service.initial.delay`, then every `service.delay`).
+. Nodes matching the configured categories are fetched from the OpenNMS node inventory.
+. For each node, an `AccessPoint` or `NetworkDevice` DTO is built with location, IP address, parent-node label, and model data.
+. A SHA hash of the serialised DTO is compared against the hash cache.
+  Only nodes whose data has changed since the last run are sent to ServiceNow.
+. On a successful send the new hash is written to the cache.
+
+== Cache management
+
+The asset cache is stored on disk at the path configured by `asset.cache.file.prefix` (default: `/opt/opennms/etc/servicenow-asset-cache`).
+Three files are maintained:
+
+* `<prefix>.properties` — hash cache (change detection)
+* `<prefix>-NetworkDevice.properties` — last-sent NetworkDevice JSON per node
+* `<prefix>-AccessPoint.properties` — last-sent AccessPoint JSON per node
+
+=== Inspecting the cache
+
+[source, console]
+----
+admin@opennms()> opennms-service-now:get-asset-cache
+----
+
+Displays a table with columns: ForeignSource, ForeignId, Label, Type, Detail, ParentLabel.
+
+=== Clearing the cache
+
+Wipes all in-memory caches and deletes the cache files from disk.
+The next scheduled run will resend all assets.
+
+[source, console]
+----
+admin@opennms()> opennms-service-now:clear-asset-cache
+----
+
+== Disabling an asset
+
+To mark a specific asset as `DISATTIVO` (install status 7) in ServiceNow:
+
+[source, console]
+----
+admin@opennms()> opennms-service-now:disable-asset <foreignSource> <foreignId>
+----
+
+The command looks up the asset in the cache, sets its `installStatus` to `DISATTIVO`, and sends the updated record to ServiceNow.
+
+== Testing asset forwarding
+
+You can send a test asset to ServiceNow from the Karaf shell without waiting for the scheduler:
+
+[source, console]
+----
+admin@opennms()> opennms-service-now:send-asset \
+    <foreignSource> <foreignId> <label> <parentLabel> <location> <ipAddress> <category>
+----
+
+Valid category values: `Wifi`, `Switch`, `Firewall`, `ModemLte`, `ModemXdsl`.
+
+== Result events
+
+After each asset synchronisation attempt, the plugin raises one of the following OpenNMS events:
+
+[options="header, autowidth", cols="3,1,2"]
+|===
+| UEI
+| Severity
+| Meaning
+
+| `uei.opennms.org/plugin/servicenow/sendAssetSuccessful`
+| Normal
+| Asset was successfully sent to ServiceNow
+
+| `uei.opennms.org/plugin/servicenow/sendAssetFailed`
+| Critical
+| Asset could not be sent to ServiceNow
+
+|===
+
+See xref:reference:events.adoc[Custom Events] for details.
