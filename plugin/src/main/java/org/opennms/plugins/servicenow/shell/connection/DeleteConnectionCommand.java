@@ -6,7 +6,7 @@ import org.apache.karaf.shell.api.action.lifecycle.Reference;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.opennms.plugins.servicenow.connection.ConnectionManager;
 
-@Command(scope = "opennms-service-now", name = "connection-delete", description = "Delete a connection", detailedDescription = "Deletes a connection for Cisco UCS Manager XML API")
+@Command(scope = "opennms-service-now", name = "connection-delete", description = "Delete a connection", detailedDescription = "Deletes a connection for Service Now")
 @Service
 public class DeleteConnectionCommand implements Action {
 

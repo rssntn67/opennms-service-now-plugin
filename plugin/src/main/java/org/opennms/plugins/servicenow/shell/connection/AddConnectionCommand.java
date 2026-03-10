@@ -9,7 +9,7 @@ import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.opennms.plugins.servicenow.client.ClientManager;
 import org.opennms.plugins.servicenow.connection.ConnectionManager;
 
-@Command(scope = "opennms-service-now", name = "connection-add", description = "Add a connection", detailedDescription = "Add a connection of Cisco UCS Manager XML API")
+@Command(scope = "opennms-service-now", name = "connection-add", description = "Add a connection", detailedDescription = "Add a connection for Service Now")
 @Service
 public class AddConnectionCommand implements Action {
 

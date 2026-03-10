@@ -10,7 +10,7 @@ import org.apache.karaf.shell.support.table.ShellTable;
 import org.opennms.plugins.servicenow.connection.Connection;
 import org.opennms.plugins.servicenow.connection.ConnectionManager;
 
-@Command(scope = "opennms-service-now", name = "connection-get", description = "List existing connections", detailedDescription = "List all existing connections for Cisco UCS Manager XML API")
+@Command(scope = "opennms-service-now", name = "connection-get", description = "List existing connections", detailedDescription = "List all existing connections for Service Now")
 @Service
 public class GetConnectionCommand implements Action {
 

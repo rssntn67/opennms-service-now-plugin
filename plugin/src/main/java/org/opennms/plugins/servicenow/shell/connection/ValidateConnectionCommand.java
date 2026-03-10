@@ -7,7 +7,7 @@ import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.opennms.plugins.servicenow.client.ClientManager;
 import org.opennms.plugins.servicenow.connection.ConnectionManager;
 
-@Command(scope = "opennms-service-now", name = "connection-validate", description = "Validate a connection", detailedDescription = "Validate an existing connection to a Cisco UCS Manager XML API")
+@Command(scope = "opennms-service-now", name = "connection-validate", description = "Validate a connection", detailedDescription = "Validate an existing connection Service Now")
 @Service
 public class ValidateConnectionCommand implements Action {
 
