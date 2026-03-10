@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AlarmForwarder implements AlarmLifecycleListener {
     private static final Logger LOG = LoggerFactory.getLogger(AlarmForwarder.class);
@@ -26,7 +27,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     private final ConnectionManager connectionManager;
     private final ApiClientProvider apiClientProvider;
     private final String filter;
-    private boolean start = true;
+    private final AtomicBoolean start = new AtomicBoolean(true);
 
     private final EdgeService edgeService;
     private final EventForwarder eventForwarder;
@@ -109,10 +110,9 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     @Override
     public void handleAlarmSnapshot(List<Alarm> alarms) {
         LOG.info("handleAlarmSnapshot: got {} alarms", alarms.size());
-        if (!start)
+        if (!start.compareAndSet(true, false))
             return;
         alarms.forEach(this::sendAlarm);
-        start=false;
     }
 
     @Override
