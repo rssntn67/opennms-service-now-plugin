@@ -37,10 +37,12 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     private ExecutorService senderThread;
 
     private static final int DEFAULT_RETRY = 3;
+    private static final long DEFAULT_RETRY_DELAY_MS = 2000L;
 
     private final EdgeService edgeService;
     private final EventForwarder eventForwarder;
     private final int retry;
+    private final long retryDelay;
 
     private static final String UEI_PREFIX = "uei.opennms.org/opennms-service-nowPlugin";
     private static final String SEND_EVENT_FAILED_UEI = UEI_PREFIX + "/sendEventFailed";
@@ -51,21 +53,30 @@ public class AlarmForwarder implements AlarmLifecycleListener {
                           String filter,
                           EdgeService edgeservice,
                           EventForwarder eventForwarder,
-                          String retry) {
+                          String retry,
+                          String retryDelay) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
         this.filter = Objects.requireNonNull(filter);
         this.edgeService = Objects.requireNonNull(edgeservice);
         this.eventForwarder = Objects.requireNonNull(eventForwarder);
-        int parsed;
+        int parsedRetry;
         try {
-            parsed = Integer.parseInt(retry);
+            parsedRetry = Integer.parseInt(retry);
         } catch (NumberFormatException e) {
             LOG.warn("Invalid retry value '{}', using default {}", retry, DEFAULT_RETRY);
-            parsed = DEFAULT_RETRY;
+            parsedRetry = DEFAULT_RETRY;
         }
-        this.retry = parsed;
-        LOG.info("init: filter: {}, retry: {}", this.filter, this.retry);
+        this.retry = parsedRetry;
+        long parsedDelay;
+        try {
+            parsedDelay = Long.parseLong(retryDelay);
+        } catch (NumberFormatException e) {
+            LOG.warn("Invalid retryDelay value '{}', using default {}", retryDelay, DEFAULT_RETRY_DELAY_MS);
+            parsedDelay = DEFAULT_RETRY_DELAY_MS;
+        }
+        this.retryDelay = parsedDelay;
+        LOG.info("init: filter: {}, retry: {}, retryDelay: {}", this.filter, this.retry, this.retryDelay);
     }
 
     public void start() {
@@ -163,6 +174,12 @@ public class AlarmForwarder implements AlarmLifecycleListener {
                     alarm.getReductionKey(),
                     e.getMessage(),
                     e.getResponseBody(), e);
+            try {
+                Thread.sleep(retryDelay * retry);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                return;
+            }
             sendAlarm(alarm, retry);
         }
     }

@@ -18,6 +18,7 @@
             <cm:property name="filter.networkdevice.modem.lte" value="LTE" />
             <cm:property name="filter.networkdevice.modem.xdsl" value="XDSL" />
             <cm:property name="retry" value="3" />
+            <cm:property name="retry.delay" value="2000" />
             <cm:property name="service.initial.delay" value="5000" />
             <cm:property name="service.delay" value="3600000" />
             <cm:property name="service.iteration" value="10" />
@@ -79,6 +80,7 @@
         <argument ref="edgeService"/>
         <argument ref="eventForwarder"/>
         <argument value="${retry}"/>
+        <argument value="${retry.delay}"/>
     </bean>
     <!-- Expose the forwarder as a AlarmLifecycleListener so we get callbacks -->
     <service interface="org.opennms.integration.api.v1.alarms.AlarmLifecycleListener" ref="alarmForwarder"/>
