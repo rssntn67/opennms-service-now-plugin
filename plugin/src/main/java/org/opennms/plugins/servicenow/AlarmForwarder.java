@@ -33,16 +33,28 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     private volatile boolean running = false;
     private ExecutorService senderThread;
 
+    private static final int DEFAULT_RETRY = 3;
+
     private final EdgeService edgeService;
+    private final int retry;
 
     public AlarmForwarder(ConnectionManager connectionManager,
                           ApiClientProvider apiClientProvider,
                           String filter,
-                          EdgeService edgeservice) {
+                          EdgeService edgeservice,
+                          String retry) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
         this.filter = Objects.requireNonNull(filter);
         this.edgeService = Objects.requireNonNull(edgeservice);
+        int parsed;
+        try {
+            parsed = Integer.parseInt(retry);
+        } catch (NumberFormatException e) {
+            LOG.warn("Invalid retry value '{}', using default {}", retry, DEFAULT_RETRY);
+            parsed = DEFAULT_RETRY;
+        }
+        this.retry = parsed;
     }
 
     public void start() {
@@ -65,7 +77,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             try {
                 Alarm alarm = queue.poll(1, TimeUnit.SECONDS);
                 if (alarm != null) {
-                    sendAlarm(alarm);
+                    sendAlarm(alarm, 0);
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -76,26 +88,35 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
     @Override
     public void handleNewOrUpdatedAlarm(Alarm alarm) {
-        queue.offer(alarm);
+        if (isToForward(alarm))
+            queue.offer(alarm);
     }
 
-    private void sendAlarm(Alarm alarm) {
-        // Map the alarm to the corresponding model object that the API requires
+    private boolean isToForward(Alarm alarm) {
         if (!alarm.getReductionKey().startsWith(ALARM_UEI_NODE_DOWN) &&
-            !alarm.getReductionKey().startsWith(ALARM_UEI_INTERFACE_DOWN) &&
-            !(alarm.getReductionKey().startsWith(ALARM_UEI_SERVICE_DOWN) && alarm.getReductionKey().endsWith("ICMP"))
-            )
+                !alarm.getReductionKey().startsWith(ALARM_UEI_INTERFACE_DOWN) &&
+                !(alarm.getReductionKey().startsWith(ALARM_UEI_SERVICE_DOWN) && alarm.getReductionKey().endsWith("ICMP"))
+        )
         {
-            LOG.debug("sendAlarm: not matching uei, skipping alarm with reduction key: {}", alarm.getReductionKey());
-            return;
+            LOG.debug("isToForward: not matching uei, skipping alarm with reduction key: {}", alarm.getReductionKey());
+            return false;
         }
-        LOG.debug("sendAlarm: categories {}", alarm.getNode().getCategories());
+        LOG.debug("isToForward: categories {}", alarm.getNode().getCategories());
         if (!alarm.getNode().getCategories().contains(filter)) {
-            LOG.debug("sendAlarm: not matching filter {}, skipping alarm with reduction key: {}", filter, alarm.getReductionKey());
-            return;
+            LOG.debug("isToForward: not matching filter {}, skipping alarm with reduction key: {}", filter, alarm.getReductionKey());
+            return false;
         }
+        return true;
+    }
 
-        LOG.info("sendAlarm: processing alarm with reduction key: {}", alarm.getReductionKey());
+    private void sendAlarm(Alarm alarm, int retry) {
+
+        if (this.retry == retry) {
+            LOG.warn("sendAlarm: skipping alarm with reduction key {}, too many retry {}", alarm.getReductionKey(), retry);
+        }
+        retry++;
+        LOG.info("sendAlarm: processing alarm with reduction key: {}, retry: {}", alarm.getReductionKey(), retry);
+        // Map the alarm to the corresponding model object that the API requires
         Alert alert = toAlert(alarm, edgeService.getParent(alarm.getNode()));
         LOG.info("sendAlarm: converted to {}", alert );
 
@@ -109,20 +130,17 @@ public class AlarmForwarder implements AlarmLifecycleListener {
                     alarm.getReductionKey(),
                     e.getMessage(),
                     e.getResponseBody(), e);
-            LOG.error("sendAlarm: no forward: alarm {}, message: {}, body: {}",
-                    alarm.getReductionKey(),
-                    e.getMessage(),
-                    e.getResponseBody(), e);
-            queue.offer(alarm);
+            sendAlarm(alarm, retry);
         }
     }
 
     @Override
     public void handleAlarmSnapshot(List<Alarm> alarms) {
-        LOG.info("handleAlarmSnapshot: got {} alarms", alarms.size());
+        LOG.debug("handleAlarmSnapshot: got {} alarms", alarms.size());
         if (!starting.get())
             return;
-        alarms.forEach(queue::offer);
+        LOG.info("handleAlarmSnapshot: starting adding {} alarms to forward", alarms.size());
+        alarms.stream().filter(this::isToForward).forEach(queue::offer);
         starting.set(false);
     }
 
