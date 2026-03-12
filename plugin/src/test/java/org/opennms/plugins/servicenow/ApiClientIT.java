@@ -97,7 +97,7 @@ public class ApiClientIT {
         assertThat(validated.isEmpty(), is(true));
         ConnectionManager connectionManager = mock(ConnectionManager.class);
         EdgeService service = mock(EdgeService.class);
-        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager, apiClientProvider, "CategoryA", service, "3");
+        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager, apiClientProvider, "CategoryA", service, "3", "2000");
         when(connectionManager.getConnection()).thenReturn(Optional.of(new ConnectionTest()));
         alarmForwarder.handleNewOrUpdatedAlarm(AlarmForwarderTest.getAlarm());
         System.out.println("accessToken: " + apiClientProvider.getTokenResponse().getAccessToken());

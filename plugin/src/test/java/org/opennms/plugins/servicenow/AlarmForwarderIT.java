@@ -39,7 +39,7 @@ public class AlarmForwarderIT {
         ConnectionManager connectionManager = mock(ConnectionManager.class);
         EdgeService service = mock(EdgeService.class);
         ApiClientProvider apiClientProvider = new ApiClientProviderImpl();
-        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager,apiClientProvider, "CategoryA", service, null);
+        AlarmForwarder alarmForwarder = new AlarmForwarder(connectionManager,apiClientProvider, "CategoryA", service, null, null);
 
         when(connectionManager.getConnection()).thenReturn(Optional.of(new ConnectionTest()));
         TokenResponse response = new TokenResponse();

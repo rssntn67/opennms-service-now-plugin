@@ -10,6 +10,7 @@
         <cm:default-properties>
             <cm:property name="filter" value="Minnovo" />
             <cm:property name="retry" value="retry" />
+            <cm:property name="retry.delay" value="2000" />
             <cm:property name="service.initial.delay" value="5000" />
             <cm:property name="service.delay" value="3600000" />
             <cm:property name="service.iteration" value="10" />
@@ -66,6 +67,7 @@
         <argument value="${filter}"/>
         <argument ref="edgeService"/>
         <argument value="${retry}"/>
+        <argument value="${retry.delay}"/>
     </bean>
     <!-- Expose the forwarder as a AlarmLifecycleListener so we get callbacks -->
     <service interface="org.opennms.integration.api.v1.alarms.AlarmLifecycleListener" ref="alarmForwarder"/>
