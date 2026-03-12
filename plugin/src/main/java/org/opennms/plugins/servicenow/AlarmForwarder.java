@@ -37,7 +37,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     private ExecutorService senderThread;
 
     private static final int DEFAULT_RETRY = 3;
-    private static final long DEFAULT_RETRY_DELAY_MS = 2000L;
+    private static final long DEFAULT_RETRY_DELAY_MS = 250L;
 
     private final EdgeService edgeService;
     private final EventForwarder eventForwarder;
