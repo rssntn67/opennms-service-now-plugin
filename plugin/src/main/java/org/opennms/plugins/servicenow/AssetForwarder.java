@@ -308,12 +308,14 @@ public class AssetForwarder implements Runnable {
             eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                     .setUei(SEND_ASSET_SUCCESSFUL_UEI)
                     .setNodeId(node.getId())
+                    .setSource("opennms-service-now-plugin")
                     .build());
             LOG.info("sendAccessPoint: forwarded: {}",  accessPoint);
         } catch (ApiException e) {
             eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                     .setUei(SEND_ASSET_FAILED_UEI)
                     .setNodeId(node.getId())
+                    .setSource("opennms-service-now-plugin")
                     .addParameter(ImmutableEventParameter.newBuilder()
                             .setName("message")
                             .setValue(e.getMessage())
@@ -341,12 +343,14 @@ public class AssetForwarder implements Runnable {
             eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                     .setUei(SEND_ASSET_SUCCESSFUL_UEI)
                     .setNodeId(node.getId())
+                    .setSource("opennms-service-now-plugin")
                     .build());
             LOG.info("sendNetworkDevice: forwarded: {}",  networkDevice);
         } catch (ApiException e) {
             eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                     .setUei(SEND_ASSET_FAILED_UEI)
                     .setNodeId(node.getId())
+                    .setSource("opennms-service-now-plugin")
                     .addParameter(ImmutableEventParameter.newBuilder()
                             .setName("message")
                             .setValue(e.getMessage())
