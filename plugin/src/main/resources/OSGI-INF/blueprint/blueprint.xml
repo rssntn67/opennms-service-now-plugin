@@ -58,7 +58,8 @@
     <service interface="org.opennms.plugins.servicenow.EdgeService" ref="edgeService"/>
 
     <!-- Build our forwarder bean -->
-    <bean id="alarmForwarder" class="org.opennms.plugins.servicenow.AlarmForwarder">
+    <bean id="alarmForwarder" class="org.opennms.plugins.servicenow.AlarmForwarder"
+          init-method="start" destroy-method="stop">
         <argument ref="connectionManager"/>
         <argument ref="apiClientProvider"/>
         <argument value="${filter}"/>

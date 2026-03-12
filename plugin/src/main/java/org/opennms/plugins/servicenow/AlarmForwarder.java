@@ -12,6 +12,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AlarmForwarder implements AlarmLifecycleListener {
     private static final Logger LOG = LoggerFactory.getLogger(AlarmForwarder.class);
@@ -23,7 +28,10 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     private final ConnectionManager connectionManager;
     private final ApiClientProvider apiClientProvider;
     private final String filter;
-    private boolean start = true;
+    private final AtomicBoolean starting = new AtomicBoolean(true);
+    private final LinkedBlockingQueue<Alarm> queue = new LinkedBlockingQueue<>();
+    private volatile boolean running = false;
+    private ExecutorService senderThread;
 
     private final EdgeService edgeService;
 
@@ -37,9 +45,38 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         this.edgeService = Objects.requireNonNull(edgeservice);
     }
 
+    public void start() {
+        running = true;
+        senderThread = Executors.newSingleThreadExecutor(r -> new Thread(r, "alarm-forwarder-sender"));
+        senderThread.submit(this::processQueue);
+        LOG.info("start: alarm sender thread started");
+    }
+
+    public void stop() {
+        running = false;
+        if (senderThread != null) {
+            senderThread.shutdownNow();
+        }
+        LOG.info("stop: alarm sender thread stopped");
+    }
+
+    private void processQueue() {
+        while (running) {
+            try {
+                Alarm alarm = queue.poll(1, TimeUnit.SECONDS);
+                if (alarm != null) {
+                    sendAlarm(alarm);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+    }
+
     @Override
     public void handleNewOrUpdatedAlarm(Alarm alarm) {
-        sendAlarm(alarm);
+        queue.offer(alarm);
     }
 
     private void sendAlarm(Alarm alarm) {
@@ -72,16 +109,21 @@ public class AlarmForwarder implements AlarmLifecycleListener {
                     alarm.getReductionKey(),
                     e.getMessage(),
                     e.getResponseBody(), e);
+            LOG.error("sendAlarm: no forward: alarm {}, message: {}, body: {}",
+                    alarm.getReductionKey(),
+                    e.getMessage(),
+                    e.getResponseBody(), e);
+            queue.offer(alarm);
         }
     }
 
     @Override
     public void handleAlarmSnapshot(List<Alarm> alarms) {
         LOG.info("handleAlarmSnapshot: got {} alarms", alarms.size());
-        if (!start)
+        if (!starting.get())
             return;
-        alarms.forEach(this::sendAlarm);
-        start=false;
+        alarms.forEach(queue::offer);
+        starting.set(false);
     }
 
     @Override
