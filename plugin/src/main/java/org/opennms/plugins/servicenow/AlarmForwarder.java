@@ -1,10 +1,7 @@
 package org.opennms.plugins.servicenow;
 
 import org.opennms.integration.api.v1.alarms.AlarmLifecycleListener;
-import org.opennms.integration.api.v1.events.EventForwarder;
 import org.opennms.integration.api.v1.model.Alarm;
-import org.opennms.integration.api.v1.model.immutables.ImmutableEventParameter;
-import org.opennms.integration.api.v1.model.immutables.ImmutableInMemoryEvent;
 import org.opennms.plugins.servicenow.client.ApiClientProvider;
 import org.opennms.plugins.servicenow.client.ApiException;
 import org.opennms.plugins.servicenow.client.ClientManager;
@@ -40,19 +37,15 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     private static final long DEFAULT_RETRY_DELAY_MS = 250L;
 
     private final EdgeService edgeService;
-    private final EventForwarder eventForwarder;
+    private final PluginEventForwarder eventForwarder;
     private final int retry;
     private final long retryDelay;
-
-    private static final String UEI_PREFIX = "uei.opennms.org/opennms-service-nowPlugin";
-    private static final String SEND_EVENT_FAILED_UEI = UEI_PREFIX + "/sendEventFailed";
-    private static final String SEND_EVENT_SUCCESSFUL_UEI = UEI_PREFIX + "/sendEventSuccessful";
 
     public AlarmForwarder(ConnectionManager connectionManager,
                           ApiClientProvider apiClientProvider,
                           String filter,
                           EdgeService edgeservice,
-                          EventForwarder eventForwarder,
+                          PluginEventForwarder eventForwarder,
                           String retry,
                           String retryDelay) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
@@ -146,30 +139,10 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             apiClientProvider.send(
                     alert,
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
-            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                    .setUei(SEND_EVENT_SUCCESSFUL_UEI)
-                    .setNodeId(alarm.getNode().getId())
-                    .setSource("opennms-service-now-plugin")
-                    .addParameter(ImmutableEventParameter.newBuilder()
-                            .setName("reductionKey")
-                            .setValue(alarm.getReductionKey())
-                            .build())
-                    .build());
+            eventForwarder.sendAlarmSuccessful(alarm.getNode().getId(), alarm.getReductionKey());
             LOG.info("sendAlarm: forwarded: id={} asset={}, node={}, parent={}", alert.getId(), alert.getAsset(), alert.getNode(), alert.getParentalNodeLabel());
         } catch (ApiException e) {
-            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                    .setUei(SEND_EVENT_FAILED_UEI)
-                    .setNodeId(alarm.getNode().getId())
-                    .setSource("opennms-service-now-plugin")
-                    .addParameter(ImmutableEventParameter.newBuilder()
-                            .setName("reductionKey")
-                            .setValue(alarm.getReductionKey())
-                            .build())
-                    .addParameter(ImmutableEventParameter.newBuilder()
-                            .setName("message")
-                            .setValue(e.getMessage())
-                            .build())
-                    .build());
+            eventForwarder.sendAlarmFailed(alarm.getNode().getId(), alarm.getReductionKey(), e.getMessage());
             LOG.error("sendAlarm: failed to send: alarm {}, message: {}, body: {}",
                     alarm.getReductionKey(),
                     e.getMessage(),

@@ -1,10 +1,7 @@
 package org.opennms.plugins.servicenow;
 
 import org.opennms.integration.api.v1.dao.NodeDao;
-import org.opennms.integration.api.v1.events.EventForwarder;
 import org.opennms.integration.api.v1.model.Node;
-import org.opennms.integration.api.v1.model.immutables.ImmutableEventParameter;
-import org.opennms.integration.api.v1.model.immutables.ImmutableInMemoryEvent;
 import org.opennms.integration.api.v1.requisition.RequisitionRepository;
 import org.opennms.plugins.servicenow.client.ApiClientProvider;
 import org.opennms.plugins.servicenow.client.ApiException;
@@ -49,7 +46,7 @@ public class AssetForwarder implements Runnable {
 
     private final NodeDao nodeDao;
     private final EdgeService edgeService;
-    private final EventForwarder eventForwarder;
+    private final PluginEventForwarder eventForwarder;
     private final RequisitionRepository requisitionRepository;
     private final String hashCacheFile;
     private final String networkDeviceCacheFile;
@@ -60,9 +57,6 @@ public class AssetForwarder implements Runnable {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final Map<String, String> fsFiIpAddressMap = new HashMap<>();
-    private static final String UEI_PREFIX = "uei.opennms.org/opennms-service-nowPlugin";
-    private static final String SEND_ASSET_FAILED_UEI = UEI_PREFIX + "/sendAssetFailed";
-    private static final String SEND_ASSET_SUCCESSFUL_UEI = UEI_PREFIX + "/sendAssetSuccessful";
 
     public AssetForwarder(ConnectionManager connectionManager,
                           ApiClientProvider apiClientProvider,
@@ -75,7 +69,7 @@ public class AssetForwarder implements Runnable {
                           NodeDao nodeDao,
                           EdgeService edgeservice,
                           RequisitionRepository requisitionRepository,
-                          EventForwarder eventForwarder,
+                          PluginEventForwarder eventForwarder,
                           String assetCacheFilePrefix) {
         this.connectionManager = Objects.requireNonNull(connectionManager);
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
@@ -251,14 +245,7 @@ public class AssetForwarder implements Runnable {
                 node.getForeignId());
         if (!fsFiIpAddressMap.containsKey(getAssetTag(node))) {
             LOG.error("sendAsset: no ip address for node {}", node.getId());
-            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                    .setUei(SEND_ASSET_FAILED_UEI)
-                    .setNodeId(node.getId())
-                    .addParameter(ImmutableEventParameter.newBuilder()
-                            .setName("message")
-                            .setValue("No ip address found")
-                            .build())
-                    .build());
+            eventForwarder.sendAssetFailed(node.getId(), "No ip address found");
             return;
         }
         String ipaddress = fsFiIpAddressMap.get(getAssetTag(node));
@@ -283,14 +270,7 @@ public class AssetForwarder implements Runnable {
             return;
         }
         LOG.error("sendAsset: no match category for node {}", node.getId());
-        eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                .setUei(SEND_ASSET_FAILED_UEI)
-                .setNodeId(node.getId())
-                .addParameter(ImmutableEventParameter.newBuilder()
-                        .setName("message")
-                        .setValue("No matching category found")
-                        .build())
-                .build());
+        eventForwarder.sendAssetFailed(node.getId(), "No matching category found");
     }
 
     public void sendAccessPoint(Node node, AccessPoint accessPoint) {
@@ -305,22 +285,10 @@ public class AssetForwarder implements Runnable {
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             updateCache(accessPoint.getAssetTag(), accessPoint.hashCode());
             updateDataCache(accessPoint);
-            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                    .setUei(SEND_ASSET_SUCCESSFUL_UEI)
-                    .setNodeId(node.getId())
-                    .setSource("opennms-service-now-plugin")
-                    .build());
+            eventForwarder.sendAssetSuccessful(node.getId());
             LOG.info("sendAccessPoint: forwarded: {}",  accessPoint);
         } catch (ApiException e) {
-            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                    .setUei(SEND_ASSET_FAILED_UEI)
-                    .setNodeId(node.getId())
-                    .setSource("opennms-service-now-plugin")
-                    .addParameter(ImmutableEventParameter.newBuilder()
-                            .setName("message")
-                            .setValue(e.getMessage())
-                            .build())
-                    .build());
+            eventForwarder.sendAssetFailed(node.getId(), e.getMessage());
             LOG.error("sendAccessPoint: failed to send:  {}, message: {}, body: {}",
                     node,
                     e.getMessage(),
@@ -340,22 +308,10 @@ public class AssetForwarder implements Runnable {
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             updateCache(networkDevice.getAssetTag(), networkDevice.hashCode());
             updateDataCache(networkDevice);
-            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                    .setUei(SEND_ASSET_SUCCESSFUL_UEI)
-                    .setNodeId(node.getId())
-                    .setSource("opennms-service-now-plugin")
-                    .build());
+            eventForwarder.sendAssetSuccessful(node.getId());
             LOG.info("sendNetworkDevice: forwarded: {}",  networkDevice);
         } catch (ApiException e) {
-            eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
-                    .setUei(SEND_ASSET_FAILED_UEI)
-                    .setNodeId(node.getId())
-                    .setSource("opennms-service-now-plugin")
-                    .addParameter(ImmutableEventParameter.newBuilder()
-                            .setName("message")
-                            .setValue(e.getMessage())
-                            .build())
-                    .build());
+            eventForwarder.sendAssetFailed(node.getId(), e.getMessage());
             LOG.error("sendNetworkDevice: failed to send:  {}, message: {}, body: {}",
                     node,
                     e.getMessage(),

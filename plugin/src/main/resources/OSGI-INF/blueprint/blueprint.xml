@@ -71,6 +71,10 @@
     </bean>
     <service interface="org.opennms.plugins.servicenow.EdgeService" ref="edgeService"/>
 
+    <bean id="pluginEventForwarder" class="org.opennms.plugins.servicenow.PluginEventForwarder">
+        <argument ref="eventForwarder"/>
+    </bean>
+
     <!-- Build our forwarder bean -->
     <bean id="alarmForwarder" class="org.opennms.plugins.servicenow.AlarmForwarder"
           init-method="start" destroy-method="stop">
@@ -78,7 +82,7 @@
         <argument ref="apiClientProvider"/>
         <argument value="${filter}"/>
         <argument ref="edgeService"/>
-        <argument ref="eventForwarder"/>
+        <argument ref="pluginEventForwarder"/>
         <argument value="${retry}"/>
         <argument value="${retry.delay}"/>
     </bean>
@@ -100,7 +104,7 @@
         <argument ref="nodeDao"/>
         <argument ref="edgeService"/>
         <argument ref="requisitionRepository"/>
-        <argument ref="eventForwarder"/>
+        <argument ref="pluginEventForwarder"/>
         <argument value="${asset.cache.file.prefix}"/>
     </bean>
     <!-- Expose the forwarder directly for access from our shell commands -->
