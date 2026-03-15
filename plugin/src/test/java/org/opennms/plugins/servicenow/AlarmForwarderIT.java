@@ -64,6 +64,7 @@ public class AlarmForwarderIT {
                 )
         );
 
+        alarmForwarder.start();
         alarmForwarder.handleNewOrUpdatedAlarm(AlarmForwarderTest.getAlarm());
 
         await().atMost(15, TimeUnit.SECONDS)
@@ -74,8 +75,7 @@ public class AlarmForwarderIT {
                     return true;
                 });
 
-
-        // Handle some alarm
+        alarmForwarder.stop();
     }
 
     private class ConnectionTest implements Connection {
