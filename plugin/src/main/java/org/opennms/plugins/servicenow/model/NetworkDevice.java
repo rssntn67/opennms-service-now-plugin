@@ -10,7 +10,7 @@ import java.util.Objects;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class NetworkDevice {
 
-    @JsonProperty("Model_ID")
+    @JsonProperty("model_id")
     private String modelId;
 
     @JsonProperty("u_categoria")
@@ -49,6 +49,9 @@ public class NetworkDevice {
     @JsonProperty("install_status")
     private InstallStatus installStatus;
 
+    @JsonProperty("u_tipo_apparato")
+    private TipoApparato tipoApparato;
+
     @Override
     public final boolean equals(Object o) {
         if (!(o instanceof NetworkDevice that)) return false;
@@ -74,9 +77,6 @@ public class NetworkDevice {
         result = 31 * result + Objects.hashCode(tipoApparato);
         return result;
     }
-
-    @JsonProperty("u_tipo_apparato")
-    private TipoApparato tipoApparato;
 
     public String getModelId() {
         return modelId;

@@ -39,6 +39,7 @@ public class AssetForwarder implements Runnable {
     private final ApiClientProvider apiClientProvider;
     private final String filter;
     private final String filterAccessPoint;
+    private final String locationAccessPointSctt;
     private final String filterSwitch;
     private final String filterFirewall;
     private final String filterModemLte;
@@ -62,6 +63,7 @@ public class AssetForwarder implements Runnable {
                           ApiClientProvider apiClientProvider,
                           String filter,
                           String filterAccessPoint,
+                          String locationAccessPointSctt,
                           String filterSwitch,
                           String filterFirewall,
                           String filterModemLte,
@@ -75,6 +77,7 @@ public class AssetForwarder implements Runnable {
         this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
         this.filter= Objects.requireNonNull(filter);
         this.filterAccessPoint = Objects.requireNonNull(filterAccessPoint);
+        this.locationAccessPointSctt = Objects.requireNonNull(locationAccessPointSctt);
         this.filterSwitch = Objects.requireNonNull(filterSwitch);
         this.filterFirewall = Objects.requireNonNull(filterFirewall);
         this.filterModemLte = Objects.requireNonNull(filterModemLte);
@@ -328,7 +331,7 @@ public class AssetForwarder implements Runnable {
         return node.getAssetRecord().getDescription();
     }
 
-    public static NetworkDevice toNetworkDevice(Node node, String parentNodeLabel, String ipaddress, TipoApparato tipoApparato) {
+    public NetworkDevice toNetworkDevice(Node node, String parentNodeLabel, String ipaddress, TipoApparato tipoApparato) {
         NetworkDevice networkDevice = new NetworkDevice();
         networkDevice.setSysClassName("u_cmdb_ci_apparati_di_rete");
         networkDevice.setCategoria("Reti Telecomunicazioni");
@@ -336,9 +339,9 @@ public class AssetForwarder implements Runnable {
         networkDevice.setAssetTag(getAssetTag(node));
         networkDevice.setIpAddress(ipaddress);
         networkDevice.setParentalNode(parentNodeLabel);
-        networkDevice.setModello(node.getAssetRecord().getModelNumber());
+        networkDevice.setModello(node.getAssetRecord().getOperatingSystem()+":"+node.getAssetRecord().getModelNumber());
         networkDevice.setMarca(node.getAssetRecord().getVendor());
-        networkDevice.setModelId(node.getAssetRecord().getOperatingSystem());
+        networkDevice.setModelId("Apparati di Rete");
         networkDevice.setInstallStatus(InstallStatus.ATTIVO);
 
         //location
@@ -352,7 +355,7 @@ public class AssetForwarder implements Runnable {
         return networkDevice;
     }
 
-    public static AccessPoint toAccessPoint(Node node, String parentNodeLabel, String ipaddress) {
+    public AccessPoint toAccessPoint(Node node, String parentNodeLabel, String ipaddress) {
         AccessPoint accessPoint = new AccessPoint();
         accessPoint.setSysClassName("u_cmdb_ci_access_point");
         accessPoint.setCategoria("Wifi");
@@ -360,9 +363,9 @@ public class AssetForwarder implements Runnable {
         accessPoint.setAssetTag(getAssetTag(node));
         accessPoint.setIpAddress(ipaddress);
         accessPoint.setParentalNode(parentNodeLabel);
-        accessPoint.setModello(node.getAssetRecord().getModelNumber());
+        accessPoint.setModello(node.getAssetRecord().getOperatingSystem()+":"+node.getAssetRecord().getModelNumber());
         accessPoint.setMarca(node.getAssetRecord().getVendor());
-        accessPoint.setModelId(node.getAssetRecord().getOperatingSystem());
+        accessPoint.setModelId("Access Point");
         accessPoint.setInstallStatus(InstallStatus.ATTIVO);
 
         //location
@@ -376,12 +379,14 @@ public class AssetForwarder implements Runnable {
         return accessPoint;
     }
 
-    private static TipoCollegamento getTipoCollegamento(String location) {
-        return switch (location) {
-            case "Default" -> TipoCollegamento.CAMPUS;
-            case "sctt" -> TipoCollegamento.SCTT;
-            default -> TipoCollegamento.ALTRO;
-        };
+    private TipoCollegamento getTipoCollegamento(String location) {
+        if (location.equals("Default")) {
+            return TipoCollegamento.CAMPUS;
+        }
+        if (location.equals(locationAccessPointSctt)){
+            return TipoCollegamento.SCTT;
+        }
+        return TipoCollegamento.ALTRO;
     }
 
     public boolean disableAsset(String foreignSource, String foreignId) {

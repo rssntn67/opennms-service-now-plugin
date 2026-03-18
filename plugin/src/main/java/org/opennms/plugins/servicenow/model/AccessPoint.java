@@ -10,7 +10,7 @@ import java.util.Objects;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class AccessPoint {
 
-    @JsonProperty("Model_ID")
+    @JsonProperty("model_id")
     private String modelId;
 
     @JsonProperty("u_categoria")

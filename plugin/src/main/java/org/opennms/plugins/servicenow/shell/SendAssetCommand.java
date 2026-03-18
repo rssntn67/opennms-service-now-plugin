@@ -45,22 +45,28 @@ public class SendAssetCommand implements Action {
 
     @Override
     public Object execute() {
+        switch (location) {
+            case "Default", "other", "sctt":
+                break;
+            default:
+                System.out.println("Unknown location: " + location + ". Valid values: Default, sctt, other");
+        }
         Node node = getNode(foreignSource, foreignId, nodeLabel, parentLabel, location, category);
         switch (category) {
             case "Wifi":
-                forwarder.sendAccessPoint(node, AssetForwarder.toAccessPoint(node, parentLabel, ipAddress));
+                forwarder.sendAccessPoint(node, forwarder.toAccessPoint(node, parentLabel, ipAddress));
                 break;
             case "Switch":
-                forwarder.sendNetworkDevice(node, AssetForwarder.toNetworkDevice(node, parentLabel, ipAddress, TipoApparato.SWITCH));
+                forwarder.sendNetworkDevice(node, forwarder.toNetworkDevice(node, parentLabel, ipAddress, TipoApparato.SWITCH));
                 break;
             case "Firewall":
-                forwarder.sendNetworkDevice(node, AssetForwarder.toNetworkDevice(node, parentLabel, ipAddress, TipoApparato.FIREWALL));
+                forwarder.sendNetworkDevice(node, forwarder.toNetworkDevice(node, parentLabel, ipAddress, TipoApparato.FIREWALL));
                 break;
             case "ModemLte":
-                forwarder.sendNetworkDevice(node, AssetForwarder.toNetworkDevice(node, parentLabel, ipAddress, TipoApparato.MODEM_LTE));
+                forwarder.sendNetworkDevice(node, forwarder.toNetworkDevice(node, parentLabel, ipAddress, TipoApparato.MODEM_LTE));
                 break;
             case "ModemXdsl":
-                forwarder.sendNetworkDevice(node, AssetForwarder.toNetworkDevice(node, parentLabel, ipAddress, TipoApparato.MODEM_XDSL));
+                forwarder.sendNetworkDevice(node, forwarder.toNetworkDevice(node, parentLabel, ipAddress, TipoApparato.MODEM_XDSL));
                 break;
             default:
                 System.out.println("Unknown category: " + category + ". Valid values: Wifi, Switch, Firewall, ModemLte, ModemXdsl");
