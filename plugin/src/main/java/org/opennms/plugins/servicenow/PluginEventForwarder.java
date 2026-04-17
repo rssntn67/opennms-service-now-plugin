@@ -49,6 +49,32 @@ public class PluginEventForwarder {
                 .build());
     }
 
+    public void sendAssetSuccessful(int nodeId, String assetTag) {
+        eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                .setUei(SEND_ASSET_SUCCESSFUL_UEI)
+                .setNodeId(nodeId)
+                .setSource(SOURCE)
+                .addParameter(ImmutableEventParameter.newBuilder()
+                        .setName("assetTag")
+                        .setValue(assetTag).build())
+                .build());
+    }
+
+    public void sendAssetFailed(int nodeId, String message, String assetTag) {
+        eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                .setUei(SEND_ASSET_FAILED_UEI)
+                .setNodeId(nodeId)
+                .setSource(SOURCE)
+                .addParameter(ImmutableEventParameter.newBuilder()
+                        .setName("message")
+                        .setValue(message)
+                        .build())
+                .addParameter(ImmutableEventParameter.newBuilder()
+                        .setName("assetTag")
+                        .setValue(assetTag).build())
+                .build());
+    }
+
     public void sendAssetSuccessful(int nodeId) {
         eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
                 .setUei(SEND_ASSET_SUCCESSFUL_UEI)
@@ -66,6 +92,30 @@ public class PluginEventForwarder {
                         .setName("message")
                         .setValue(message)
                         .build())
+                .build());
+    }
+
+    public void sendAssetSuccessful(String assetTag) {
+        eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                .setUei(SEND_ASSET_SUCCESSFUL_UEI)
+                .setSource(SOURCE)
+                .addParameter(ImmutableEventParameter.newBuilder()
+                        .setName("assetTag")
+                        .setValue(assetTag).build())
+                .build());
+    }
+
+    public void sendAssetFailed(String message, String assetTag) {
+        eventForwarder.sendAsync(ImmutableInMemoryEvent.newBuilder()
+                .setUei(SEND_ASSET_FAILED_UEI)
+                .setSource(SOURCE)
+                .addParameter(ImmutableEventParameter.newBuilder()
+                        .setName("message")
+                        .setValue(message)
+                        .build())
+                .addParameter(ImmutableEventParameter.newBuilder()
+                        .setName("assetTag")
+                        .setValue(assetTag).build())
                 .build());
     }
 }

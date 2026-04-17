@@ -1,5 +1,8 @@
 package org.opennms.plugins.servicenow;
 
+import org.opennms.integration.api.v1.config.requisition.Requisition;
+import org.opennms.integration.api.v1.config.requisition.RequisitionInterface;
+import org.opennms.integration.api.v1.config.requisition.RequisitionNode;
 import org.opennms.integration.api.v1.dao.NodeDao;
 import org.opennms.integration.api.v1.model.Node;
 import org.opennms.integration.api.v1.requisition.RequisitionRepository;
@@ -57,8 +60,6 @@ public class AssetForwarder implements Runnable {
     private final Map<String, String> networkDeviceMap = new HashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private final Map<String, String> fsFiIpAddressMap = new HashMap<>();
-
     public AssetForwarder(ConnectionManager connectionManager,
                           ApiClientProvider apiClientProvider,
                           String filter,
@@ -100,11 +101,11 @@ public class AssetForwarder implements Runnable {
         loadAccessPointCache();
     }
 
-    private static String getAssetTag(Node node) {
+    public static String getAssetTag(Node node) {
         return getAssetTag(node.getForeignSource(),node.getForeignId());
     }
 
-    private static String getAssetTag(String fs, String fid) {
+    public static String getAssetTag(String fs, String fid) {
         return fs+"::"+fid;
     }
 
@@ -248,30 +249,75 @@ public class AssetForwarder implements Runnable {
                 node.getId(),
                 node.getForeignSource(),
                 node.getForeignId());
-        if (!fsFiIpAddressMap.containsKey(getAssetTag(node))) {
-            LOG.error("sendAsset: no ip address for node {}", node.getId());
+        Requisition req = requisitionRepository.getDeployedRequisition(node.getForeignSource());
+        if (req == null) {
+            LOG.error("sendAsset: no requisition  for nodeId: {}, fs: {}", node.getId(), node.getForeignSource());
+            eventForwarder.sendAssetFailed(node.getId(), "No requisition found");
+            return;
+        }
+        RequisitionNode rn = null;
+        for (RequisitionNode currRn: req.getNodes()) {
+            if (currRn.getForeignId().equals(node.getForeignId())) {
+                rn = currRn;
+                break;
+            }
+        }
+        if (rn == null) {
+            LOG.error("sendAsset: no requisition node for nodeId: {}", node.getId());
+            eventForwarder.sendAssetFailed(node.getId(), "No requisition node found");
+            return;
+        }
+        if (rn.getInterfaces().isEmpty()) {
+            LOG.error("sendAsset: no requisition interface for nodeId: {}", node.getId());
             eventForwarder.sendAssetFailed(node.getId(), "No ip address found");
             return;
         }
-        String ipaddress = fsFiIpAddressMap.get(getAssetTag(node));
+        RequisitionInterface ri = rn.getInterfaces().get(0);
+        String ipaddress = ri.getIpAddress().getHostAddress();
+
         if (node.getCategories().contains(filterAccessPoint)) {
-            sendAccessPoint(node, toAccessPoint(node, edgeService.getParent(node), ipaddress));
+            AccessPoint ap = toAccessPoint(node, edgeService.getParent(node), ipaddress);
+            if (isUnchanged(ap.getAssetTag(), ap.hashCode())) {
+                LOG.info("sendAsset: AccessPoint skipping unchanged asset: {}", ap.getAssetTag());
+                return;
+            }
+            sendAccessPoint(node, ap);
             return;
         }
         if (node.getCategories().contains(filterSwitch)) {
-            sendNetworkDevice(node, toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.SWITCH));
+            NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.SWITCH);
+            if (isUnchanged(nd.getAssetTag(), nd.hashCode())) {
+                LOG.info("sendAsset: NetworkDevice Switch skipping unchanged asset: {}", nd.getAssetTag());
+                return;
+            }
+            sendNetworkDevice(node, nd);
             return;
         }
         if (node.getCategories().contains(filterFirewall)) {
-            sendNetworkDevice(node, toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.FIREWALL));
+            NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.FIREWALL);
+            if (isUnchanged(nd.getAssetTag(), nd.hashCode())) {
+                LOG.info("sendAsset: NetworkDevice Firewall skipping unchanged asset: {}", nd.getAssetTag());
+                return;
+            }
+            sendNetworkDevice(node, nd);
             return;
         }
         if (node.getCategories().contains(filterModemLte)) {
-            sendNetworkDevice(node, toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_LTE));
+            NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_LTE);
+            if (isUnchanged(nd.getAssetTag(), nd.hashCode())) {
+                LOG.info("sendAsset: NetworkDevice Modem LTE skipping unchanged asset: {}", nd.getAssetTag());
+                return;
+            }
+            sendNetworkDevice(node, nd);
             return;
         }
         if (node.getCategories().contains(filterModemXdsl)) {
-            sendNetworkDevice(node, toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_XDSL));
+            NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_XDSL);
+            if (isUnchanged(nd.getAssetTag(), nd.hashCode())) {
+                LOG.info("sendAsset: NetworkDevice Model XDSL skipping unchanged asset: {}", nd.getAssetTag());
+                return;
+            }
+            sendNetworkDevice(node, nd);
             return;
         }
         LOG.error("sendAsset: no match category for node {}", node.getId());
@@ -279,10 +325,6 @@ public class AssetForwarder implements Runnable {
     }
 
     public void sendAccessPoint(Node node, AccessPoint accessPoint) {
-        if (isUnchanged(accessPoint.getAssetTag(), accessPoint.hashCode())) {
-            LOG.debug("sendAccessPoint: skipping unchanged asset: {}", accessPoint.getAssetTag());
-            return;
-        }
         LOG.info("sendAccessPoint: converted to {}", accessPoint);
         try {
             apiClientProvider.send(
@@ -290,22 +332,26 @@ public class AssetForwarder implements Runnable {
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             updateCache(accessPoint.getAssetTag(), accessPoint.hashCode());
             updateDataCache(accessPoint);
-            if (node != null) eventForwarder.sendAssetSuccessful(node.getId());
+            if (node != null) {
+                eventForwarder.sendAssetSuccessful(node.getId(), accessPoint.getAssetTag());
+            } else {
+                eventForwarder.sendAssetSuccessful(accessPoint.getAssetTag());
+            }
             LOG.info("sendAccessPoint: forwarded: {}",  accessPoint);
         } catch (ApiException e) {
-            if (node != null) eventForwarder.sendAssetFailed(node.getId(), e.getMessage());
             LOG.error("sendAccessPoint: failed to send:  {}, message: {}, body: {}",
                     node,
                     e.getMessage(),
                     e.getResponseBody(), e);
+            if (node != null) {
+                eventForwarder.sendAssetFailed(node.getId(), e.getMessage(), accessPoint.getAssetTag());
+            } else {
+                eventForwarder.sendAssetFailed(e.getMessage(), accessPoint.getAssetTag());
+            }
         }
     }
 
     public void sendNetworkDevice(Node node, NetworkDevice networkDevice) {
-        if (isUnchanged(networkDevice.getAssetTag(), networkDevice.hashCode())) {
-            LOG.debug("sendNetworkDevice: skipping unchanged asset: {}", networkDevice.getAssetTag());
-            return;
-        }
         LOG.info("sendNetworkDevice: converted to {}", networkDevice);
         try {
             apiClientProvider.send(
@@ -313,10 +359,18 @@ public class AssetForwarder implements Runnable {
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             updateCache(networkDevice.getAssetTag(), networkDevice.hashCode());
             updateDataCache(networkDevice);
-            if (node != null) eventForwarder.sendAssetSuccessful(node.getId());
+            if (node != null) {
+                eventForwarder.sendAssetSuccessful(node.getId(), networkDevice.getAssetTag());
+            } else {
+                eventForwarder.sendAssetSuccessful(networkDevice.getAssetTag());
+            }
             LOG.info("sendNetworkDevice: forwarded: {}",  networkDevice);
         } catch (ApiException e) {
-            if (node != null) eventForwarder.sendAssetFailed(node.getId(), e.getMessage());
+            if (node != null) {
+                eventForwarder.sendAssetFailed(node.getId(), e.getMessage(), networkDevice.getAssetTag());
+            } else {
+                eventForwarder.sendAssetFailed(e.getMessage(), networkDevice.getAssetTag());
+            }
             LOG.error("sendNetworkDevice: failed to send:  {}, message: {}, body: {}",
                     node,
                     e.getMessage(),
@@ -391,13 +445,16 @@ public class AssetForwarder implements Runnable {
         return TipoCollegamento.ALTRO;
     }
 
-    public boolean disableAsset(String foreignSource, String foreignId) {
-        String assetTag = getAssetTag(foreignSource, foreignId);
+    public boolean disableAsset(String assetTag) {
         if (networkDeviceMap.containsKey(assetTag)) {
             NetworkDevice nd = toNetworkDevice(networkDeviceMap.get(assetTag));
             if (nd == null) {
                 LOG.error("disableAsset: failed to deserialize NetworkDevice for {}", assetTag);
                 return false;
+            }
+            if (nd.getInstallStatus().equals(InstallStatus.DISATTIVO)) {
+                LOG.info("disableAsset: Already Disabled NetworkDevice for {}", assetTag);
+                return true;
             }
             nd.setInstallStatus(InstallStatus.DISATTIVO);
             sendNetworkDevice(null, nd);
@@ -409,6 +466,10 @@ public class AssetForwarder implements Runnable {
                 LOG.error("disableAsset: failed to deserialize AccessPoint for {}", assetTag);
                 return false;
             }
+            if (ap.getInstallStatus().equals(InstallStatus.DISATTIVO)) {
+                LOG.info("disableAsset: Already Disabled AccessPoint for {}", assetTag);
+                return true;
+            }
             ap.setInstallStatus(InstallStatus.DISATTIVO);
             sendAccessPoint(null, ap);
             return true;
@@ -417,61 +478,17 @@ public class AssetForwarder implements Runnable {
         return false;
     }
 
-    private Set<String> pruneCache(Set<String> currentAssetTags) {
-        return hashCache.keySet().stream()
-                .filter(k -> !currentAssetTags.contains(k))
-                .collect(Collectors.toSet());
-    }
-
     @Override
     public void run() {
         LOG.info("run: calling");
         List<Node> nodes = nodeDao.getNodes().stream().filter(n -> n.getCategories().contains(filter)).toList();
-        LOG.info("run: found {} nodes", nodes.size());
+        LOG.info("run: found: {} nodes", nodes.size());
         Set<String> currentAssetTags = nodes.stream().map(AssetForwarder::getAssetTag).collect(Collectors.toSet());
-        pruneCache(currentAssetTags).forEach(assetTag -> {
-            if (networkDeviceMap.containsKey(assetTag)) {
-                NetworkDevice nd = toNetworkDevice(networkDeviceMap.get(assetTag));
-                if (nd == null) {
-                    LOG.error("run: no data got NetworkElement: {}", assetTag);
-                    return;
-                }
-                nd.setInstallStatus(InstallStatus.DISATTIVO);
-                sendNetworkDevice(null, nd);
-                return;
-            }
-            if (accessPointMap.containsKey(assetTag)) {
-                AccessPoint ap = toAccessPoint(accessPointMap.get(assetTag));
-                if (ap == null) {
-                    LOG.error("run: no data got AccessPoint: {}", assetTag);
-                    return;
-                }
-                ap.setInstallStatus(InstallStatus.DISATTIVO);
-                sendAccessPoint(null, ap);
-            }
-        });
-
-        Set<String> foreignSources = nodes.stream()
-                .map(Node::getForeignSource)
+        currentAssetTags.forEach(h -> LOG.debug("run: found: {} hash", h));
+        Set<String> cachedDeletedAssetTags = hashCache.keySet().stream()
+                .filter(k -> !currentAssetTags.contains(k))
                 .collect(Collectors.toSet());
-
-        fsFiIpAddressMap.clear();
-        foreignSources.forEach(fs -> {
-            var requisition = requisitionRepository.getDeployedRequisition(fs);
-            if (requisition == null) {
-                LOG.warn("run: no deployed requisition for foreignSource: {}", fs);
-                return;
-            }
-            requisition.getNodes().stream()
-                    .filter(rn -> rn.getInterfaces() != null && !rn.getInterfaces().isEmpty())
-                    .forEach(rn -> fsFiIpAddressMap.put(
-                            getAssetTag(fs, rn.getForeignId()),
-                            rn.getInterfaces().getFirst().getIpAddress().getHostAddress()
-                    ));
-        });
-
-
-        LOG.info("run: AssetTagIpAddressMap.size: {}", fsFiIpAddressMap.size());
+        cachedDeletedAssetTags.forEach(this::disableAsset);
         nodes.forEach(this::sendAsset);
     }
 
