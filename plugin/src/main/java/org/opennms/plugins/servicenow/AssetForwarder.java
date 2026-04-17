@@ -423,6 +423,7 @@ public class AssetForwarder implements Runnable {
 
     @Override
     public void run() {
+        LOG.info("run: calling");
         List<Node> nodes = nodeDao.getNodes().stream().filter(n -> n.getCategories().contains(filter)).toList();
         Set<String> currentAssetTags = nodes.stream().map(AssetForwarder::getAssetTag).collect(Collectors.toSet());
         pruneCache(currentAssetTags).forEach(assetTag -> {
@@ -439,7 +440,7 @@ public class AssetForwarder implements Runnable {
             if (accessPointMap.containsKey(assetTag)) {
                 AccessPoint ap = toAccessPoint(accessPointMap.get(assetTag));
                 if (ap == null) {
-                    LOG.error("run: no data got AcccessPoint: {}", assetTag);
+                    LOG.error("run: no data got AccessPoint: {}", assetTag);
                     return;
                 }
                 ap.setInstallStatus(InstallStatus.DISATTIVO);

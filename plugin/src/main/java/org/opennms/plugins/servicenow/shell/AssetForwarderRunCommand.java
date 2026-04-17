@@ -5,25 +5,21 @@ import org.apache.karaf.shell.api.action.Command;
 import org.apache.karaf.shell.api.action.lifecycle.Reference;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.apache.karaf.shell.api.console.Session;
-import org.apache.karaf.shell.support.table.Col;
-import org.apache.karaf.shell.support.table.ShellTable;
-import org.opennms.plugins.servicenow.EdgeService;
+import org.opennms.plugins.servicenow.AssetForwarder;
 
-import java.util.Map;
-
-@Command(scope = "opennms-service-now", name = "edge-service-run", description = "Run Edge Service.")
+@Command(scope = "opennms-service-now", name = "asset-forwarder-run", description = "run asset forwarder.")
 @Service
-public class EdgeServiceRunCommand implements Action {
+public class AssetForwarderRunCommand implements Action {
 
     @Reference
     private Session session;
 
     @Reference
-    private EdgeService service;
+    private AssetForwarder forwarder;
 
     @Override
     public Object execute() {
-        service.run();
+        forwarder.run();
         return null;
     }
 

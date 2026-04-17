@@ -207,6 +207,7 @@ public class EdgeService implements Runnable {
 
     @Override
     public void run() {
+        LOG.info("run: calling");
         List<Node> nodes = nodeDao.getNodes();
         LOG.info("run: nodes size: {}", nodes.size());
         this.gatewayToChildMap.clear();

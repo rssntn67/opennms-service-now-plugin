@@ -11,9 +11,9 @@ import org.opennms.plugins.servicenow.EdgeService;
 
 import java.util.Map;
 
-@Command(scope = "opennms-service-now", name = "edge-service-run", description = "Run Edge Service.")
+@Command(scope = "opennms-service-now", name = "get-parent-list", description = "Get Parent Node List.")
 @Service
-public class EdgeServiceRunCommand implements Action {
+public class getPatentListCommand implements Action {
 
     @Reference
     private Session session;
@@ -23,7 +23,17 @@ public class EdgeServiceRunCommand implements Action {
 
     @Override
     public Object execute() {
-        service.run();
+        final var table = new ShellTable()
+                .size(session.getTerminal().getWidth() - 1)
+                .column(new Col("label").maxSize(72))
+                .column(new Col("parent").maxSize(72))
+                ;
+        for (Map.Entry<String,String> entry : service.getParentByGatewayKeyMap().entrySet()) {
+            final var row = table.addRow();
+            row.addContent(entry.getKey());
+            row.addContent(entry.getValue());
+        }
+        table.print(System.out,true);
         return null;
     }
 

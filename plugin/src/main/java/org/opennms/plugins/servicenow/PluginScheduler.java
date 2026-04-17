@@ -40,7 +40,7 @@ public class PluginScheduler implements HealthCheck {
         LOG.info("PluginScheduler: starting scheduler with initialDelay={} delay={}", initialDelayL, delayL);
         executor = Executors.newScheduledThreadPool(1);
         edgeFuture = executor.scheduleWithFixedDelay(edgeService, initialDelayL, delayL, TimeUnit.MILLISECONDS);
-        assetFuture = executor.scheduleWithFixedDelay(assetForwarder, 10*initialDelayL, delayL, TimeUnit.MILLISECONDS);
+        assetFuture = executor.scheduleWithFixedDelay(assetForwarder, 30*initialDelayL, delayL, TimeUnit.MILLISECONDS);
         LOG.info("PluginScheduler: scheduler started");
     }
 
