@@ -90,6 +90,8 @@ public class AssetForwarder implements Runnable {
         this.networkDeviceCacheFile = assetCacheFilePrefix+"-NetworkDevice.properties";
         this.accessPointCacheFile = assetCacheFilePrefix+"-AccessPoint.properties";
 
+        LOG.info("init: filter: {}", this.filter);
+
         LOG.info("init: filterAccessPoint: {}, filterSwitch: {}, filterFirewall: {}, filterModemLte: {}, filterModemXdsl: {}",
                 this.filterAccessPoint, this.filterSwitch, this.filterFirewall, this.filterModemLte, this.filterModemXdsl);
 
@@ -288,10 +290,10 @@ public class AssetForwarder implements Runnable {
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             updateCache(accessPoint.getAssetTag(), accessPoint.hashCode());
             updateDataCache(accessPoint);
-            eventForwarder.sendAssetSuccessful(node.getId());
+            if (node != null) eventForwarder.sendAssetSuccessful(node.getId());
             LOG.info("sendAccessPoint: forwarded: {}",  accessPoint);
         } catch (ApiException e) {
-            eventForwarder.sendAssetFailed(node.getId(), e.getMessage());
+            if (node != null) eventForwarder.sendAssetFailed(node.getId(), e.getMessage());
             LOG.error("sendAccessPoint: failed to send:  {}, message: {}, body: {}",
                     node,
                     e.getMessage(),
@@ -311,10 +313,10 @@ public class AssetForwarder implements Runnable {
                     ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
             updateCache(networkDevice.getAssetTag(), networkDevice.hashCode());
             updateDataCache(networkDevice);
-            eventForwarder.sendAssetSuccessful(node.getId());
+            if (node != null) eventForwarder.sendAssetSuccessful(node.getId());
             LOG.info("sendNetworkDevice: forwarded: {}",  networkDevice);
         } catch (ApiException e) {
-            eventForwarder.sendAssetFailed(node.getId(), e.getMessage());
+            if (node != null) eventForwarder.sendAssetFailed(node.getId(), e.getMessage());
             LOG.error("sendNetworkDevice: failed to send:  {}, message: {}, body: {}",
                     node,
                     e.getMessage(),
@@ -425,6 +427,7 @@ public class AssetForwarder implements Runnable {
     public void run() {
         LOG.info("run: calling");
         List<Node> nodes = nodeDao.getNodes().stream().filter(n -> n.getCategories().contains(filter)).toList();
+        LOG.info("run: found {} nodes", nodes.size());
         Set<String> currentAssetTags = nodes.stream().map(AssetForwarder::getAssetTag).collect(Collectors.toSet());
         pruneCache(currentAssetTags).forEach(assetTag -> {
             if (networkDeviceMap.containsKey(assetTag)) {
@@ -467,10 +470,9 @@ public class AssetForwarder implements Runnable {
                     ));
         });
 
-        LOG.debug("run: AssetTagIpAddressMap: {}", fsFiIpAddressMap);
-        nodes.forEach(this::sendAsset);
 
-        fsFiIpAddressMap.clear();
+        LOG.info("run: AssetTagIpAddressMap.size: {}", fsFiIpAddressMap.size());
+        nodes.forEach(this::sendAsset);
     }
 
 }
