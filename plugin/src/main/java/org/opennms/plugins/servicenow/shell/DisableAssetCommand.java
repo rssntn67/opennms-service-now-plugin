@@ -7,6 +7,8 @@ import org.apache.karaf.shell.api.action.lifecycle.Reference;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.opennms.plugins.servicenow.AssetForwarder;
 
+import static org.opennms.plugins.servicenow.AssetForwarder.getAssetTag;
+
 @Command(scope = "opennms-service-now", name = "disable-asset", description = "Set an asset as DISATTIVO in ServiceNow.")
 @Service
 public class DisableAssetCommand implements Action {
@@ -22,7 +24,8 @@ public class DisableAssetCommand implements Action {
 
     @Override
     public Object execute() {
-        if (forwarder.disableAsset(foreignSource, foreignId)) {
+
+        if (forwarder.disableAsset(getAssetTag(foreignSource, foreignId))) {
             System.out.println("Asset " + foreignSource + "::" + foreignId + " set to DISATTIVO.");
         } else {
             System.out.println("Asset " + foreignSource + "::" + foreignId + " not found in cache.");
