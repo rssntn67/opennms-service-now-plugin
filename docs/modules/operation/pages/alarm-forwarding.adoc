@@ -9,7 +9,10 @@ The `AlarmForwarder` component listens for OpenNMS alarm lifecycle events and fo
 . On the first callback the plugin processes the full alarm snapshot; subsequent callbacks handle individual alarm updates.
 . Each alarm is checked against the UEI filter and the node-category filter (see xref:configuration:alarm-filters.adoc[Alarm Filters]).
 . For qualifying alarms, `EdgeService.getParent()` is called to enrich the alert with the parent-node label from the topology map.
-. The alarm is converted to an `Alert` DTO and sent to ServiceNow via the configured `alert.endpoint`.
+. The alarm is placed on the `AlarmSender` internal queue and processed asynchronously.
+. `AlarmSender` converts the alarm to an `Alert` DTO and sends it to ServiceNow via the configured `alert.endpoint`.
+  If the send fails it is retried up to `retry` times with an increasing delay (`retry.delay × attempt`).
+  If a send exceeds `send.timeout` milliseconds it is cancelled and treated as a failure.
 . A custom OpenNMS event is raised to record the outcome (success or failure).
 
 == Alert fields

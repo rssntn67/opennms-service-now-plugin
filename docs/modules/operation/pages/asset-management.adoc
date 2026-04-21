@@ -37,10 +37,14 @@ The `AssetForwarder` component periodically discovers network assets from the Op
 
 . The `PluginScheduler` triggers `AssetForwarder` on a schedule (starts at `10 × service.initial.delay`, then every `service.delay`).
 . Nodes matching the configured categories are fetched from the OpenNMS node inventory.
+. Any node present in the cache but no longer in the inventory is automatically disabled (sent to ServiceNow with `installStatus = DISATTIVO`).
 . For each node, an `AccessPoint` or `NetworkDevice` DTO is built with location, IP address, parent-node label, and model data.
-. A SHA hash of the serialised DTO is compared against the hash cache.
-  Only nodes whose data has changed since the last run are sent to ServiceNow.
-. On a successful send the new hash is written to the cache.
+. The DTO hash is compared against the `AssetSender` hash cache.
+  Only nodes whose data has changed since the last run are enqueued.
+. `AssetSender` processes the queue asynchronously, sending each asset to ServiceNow via the configured `asset.endpoint`.
+  If a send fails it is retried up to `retry` times with an increasing delay (`retry.delay × attempt`).
+  If a send exceeds `send.timeout` milliseconds it is cancelled and treated as a failure.
+. On a successful send the hash and serialised DTO are written to the cache.
 
 == Cache management
 

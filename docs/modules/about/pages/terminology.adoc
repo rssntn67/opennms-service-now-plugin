@@ -40,11 +40,18 @@ The plugin component responsible for building a topology map of the monitored ne
 It traverses `EdgeDao` data up to a configurable depth and exposes a `getParent()` method used during alarm enrichment.
 
 AlarmForwarder::
-The plugin component that listens for OpenNMS alarm lifecycle events and forwards qualifying alarms to ServiceNow.
+The plugin component that listens for OpenNMS alarm lifecycle events, applies UEI and category filters, enriches alarms with topology data, and hands them off to `AlarmSender` for async delivery.
+
+AlarmSender::
+The plugin component that owns the alarm send queue and executor threads.
+It converts alarms to `Alert` DTOs, sends them to ServiceNow, and handles retry and per-send timeout.
 
 AssetForwarder::
-The plugin component that runs on a schedule, discovers network assets from the OpenNMS inventory, and synchronises them to ServiceNow.
-It maintains an on-disk cache to send only new or changed assets.
+The plugin component that runs on a schedule, discovers network assets from the OpenNMS inventory, checks them against the `AssetSender` cache, and enqueues changed assets for delivery.
+
+AssetSender::
+The plugin component that owns the asset send queues, executor threads, and the three-tier on-disk cache (hash cache for change detection, plus JSON caches for NetworkDevice and AccessPoint data).
+It sends assets to ServiceNow asynchronously with retry and per-send timeout.
 
 AccessPoint::
 A WiFi access-point asset type, identified in OpenNMS by the category configured in `filter.accesspoint`.
