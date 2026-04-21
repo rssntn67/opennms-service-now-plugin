@@ -102,7 +102,7 @@ public class ApiClientIT {
         ConnectionManager connectionManager = mock(ConnectionManager.class);
         EdgeService service = mock(EdgeService.class);
         org.opennms.integration.api.v1.events.EventForwarder eventForwarder = mock(org.opennms.integration.api.v1.events.EventForwarder.class);
-        AlarmSender alarmSender = new AlarmSender(connectionManager, apiClientProvider, service, new PluginEventForwarder(eventForwarder), 3, 2000L);
+        AlarmSender alarmSender = new AlarmSender(connectionManager, apiClientProvider, service, new PluginEventForwarder(eventForwarder), 3, 2000L, 30000L);
         AlarmForwarder alarmForwarder = new AlarmForwarder("CategoryA", alarmSender);
         when(connectionManager.getConnection()).thenReturn(Optional.of(new ConnectionTest()));
         alarmForwarder.handleNewOrUpdatedAlarm(AlarmForwarderTest.getAlarm());

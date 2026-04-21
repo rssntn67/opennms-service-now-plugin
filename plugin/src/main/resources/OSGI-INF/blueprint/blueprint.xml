@@ -20,6 +20,7 @@
             <cm:property name="filter.networkdevice.modem.xdsl" value="XDSL" />
             <cm:property name="retry" value="3" />
             <cm:property name="retry.delay" value="250" />
+            <cm:property name="send.timeout" value="30000" />
             <cm:property name="service.initial.delay" value="5000" />
             <cm:property name="service.delay" value="3600000" />
             <cm:property name="service.iteration" value="10" />
@@ -84,6 +85,7 @@
         <argument ref="pluginEventForwarder"/>
         <argument value="${retry}"/>
         <argument value="${retry.delay}"/>
+        <argument value="${send.timeout}"/>
     </bean>
 
     <!-- Build our forwarder bean -->

@@ -104,6 +104,9 @@ Runtime properties are set in `/opt/opennms/etc/org.opennms.plugins.servicenow.c
 | `filter.networkdevice.firewall` | `Firewall` | Category for firewalls |
 | `filter.networkdevice.modem.lte` | `LTE` | Category for LTE modems |
 | `filter.networkdevice.modem.xdsl` | `XDSL` | Category for xDSL modems |
+| `retry` | `3` | Max send attempts per alarm |
+| `retry.delay` | `250` | Base retry delay (ms); multiplied by attempt number |
+| `send.timeout` | `30000` | Per-alarm send timeout (ms); cancels the attempt if exceeded |
 | `token.endpoint` | `token` | OAuth2 token path |
 | `alert.endpoint` | *(ServiceNow alert path)* | REST path for sending alerts |
 | `asset.endpoint` | *(ServiceNow asset path)* | REST path for sending assets |

@@ -9,10 +9,13 @@ import org.opennms.plugins.servicenow.model.Alert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class AlarmSender {
     private static final Logger LOG = LoggerFactory.getLogger(AlarmSender.class);
@@ -23,23 +26,27 @@ public class AlarmSender {
     private final PluginEventForwarder eventForwarder;
     private final int maxRetry;
     private final long retryDelay;
+    private final long timeoutMs;
 
     private final LinkedBlockingQueue<Alarm> queue = new LinkedBlockingQueue<>();
     private volatile boolean running = false;
-    private ExecutorService senderThread;
+    private ExecutorService queueThread;
+    private final ExecutorService sendThread = Executors.newSingleThreadExecutor(r -> new Thread(r, "alarm-forwarder-send"));
 
     public AlarmSender(ConnectionManager connectionManager,
                        ApiClientProvider apiClientProvider,
                        EdgeService edgeService,
                        PluginEventForwarder eventForwarder,
                        int maxRetry,
-                       long retryDelay) {
+                       long retryDelay,
+                       long timeoutMs) {
         this.connectionManager = connectionManager;
         this.apiClientProvider = apiClientProvider;
         this.edgeService = edgeService;
         this.eventForwarder = eventForwarder;
         this.maxRetry = maxRetry;
         this.retryDelay = retryDelay;
+        this.timeoutMs = timeoutMs;
     }
 
     public void enqueue(Alarm alarm) {
@@ -48,25 +55,35 @@ public class AlarmSender {
 
     public void start() {
         running = true;
-        senderThread = Executors.newSingleThreadExecutor(r -> new Thread(r, "alarm-forwarder-sender"));
-        senderThread.submit(this::processQueue);
-        LOG.info("start: alarm sender thread started");
+        queueThread = Executors.newSingleThreadExecutor(r -> new Thread(r, "alarm-forwarder-queue"));
+        queueThread.submit(this::processQueue);
+        LOG.info("start: alarm sender started (timeoutMs={})", timeoutMs);
     }
 
     public void stop() {
         running = false;
-        if (senderThread != null) {
-            senderThread.shutdownNow();
+        if (queueThread != null) {
+            queueThread.shutdownNow();
         }
-        LOG.info("stop: alarm sender thread stopped");
+        sendThread.shutdownNow();
+        LOG.info("stop: alarm sender stopped");
     }
 
     private void processQueue() {
         while (running) {
             try {
                 Alarm alarm = queue.poll(1, TimeUnit.SECONDS);
-                if (alarm != null) {
-                    sendAlarm(alarm, 0);
+                if (alarm == null) {
+                    continue;
+                }
+                Future<?> future = sendThread.submit(() -> sendAlarm(alarm, 0));
+                try {
+                    future.get(timeoutMs, TimeUnit.MILLISECONDS);
+                } catch (TimeoutException e) {
+                    future.cancel(true);
+                    LOG.warn("processQueue: send timed out after {}ms for reduction key: {}", timeoutMs, alarm.getReductionKey());
+                } catch (ExecutionException e) {
+                    LOG.error("processQueue: send failed for reduction key: {}", alarm.getReductionKey(), e.getCause());
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
