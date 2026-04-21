@@ -19,18 +19,20 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
     private final String filter;
     private final AlarmSender alarmSender;
+    private final EdgeService edgeService;
     private final AtomicBoolean starting = new AtomicBoolean(true);
 
-    public AlarmForwarder(String filter, AlarmSender alarmSender) {
+    public AlarmForwarder(String filter, AlarmSender alarmSender, EdgeService edgeService) {
         this.filter = Objects.requireNonNull(filter);
         this.alarmSender = Objects.requireNonNull(alarmSender);
+        this.edgeService = Objects.requireNonNull(edgeService);
         LOG.info("init: filter: {}", this.filter);
     }
 
     @Override
     public void handleNewOrUpdatedAlarm(Alarm alarm) {
         if (isToForward(alarm))
-            alarmSender.enqueue(alarm);
+            alarmSender.enqueue(alarm, alarm.getNode(), edgeService.getParent(alarm.getNode()));
     }
 
     private boolean isToForward(Alarm alarm) {
@@ -56,7 +58,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         if (!starting.get())
             return;
         LOG.info("handleAlarmSnapshot: starting adding {} alarms to forward", alarms.size());
-        alarms.stream().filter(this::isToForward).forEach(alarmSender::enqueue);
+        alarms.stream().filter(this::isToForward).forEach(a-> alarmSender.enqueue(a, a.getNode(), edgeService.getParent(a.getNode())));
         starting.set(false);
     }
 

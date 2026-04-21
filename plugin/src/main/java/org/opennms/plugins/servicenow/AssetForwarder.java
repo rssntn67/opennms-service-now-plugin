@@ -6,10 +6,6 @@ import org.opennms.integration.api.v1.config.requisition.RequisitionNode;
 import org.opennms.integration.api.v1.dao.NodeDao;
 import org.opennms.integration.api.v1.model.Node;
 import org.opennms.integration.api.v1.requisition.RequisitionRepository;
-import org.opennms.plugins.servicenow.client.ApiClientProvider;
-import org.opennms.plugins.servicenow.client.ApiException;
-import org.opennms.plugins.servicenow.client.ClientManager;
-import org.opennms.plugins.servicenow.connection.ConnectionManager;
 import org.opennms.plugins.servicenow.model.AccessPoint;
 import org.opennms.plugins.servicenow.model.InstallStatus;
 import org.opennms.plugins.servicenow.model.NetworkDevice;
@@ -18,28 +14,15 @@ import org.opennms.plugins.servicenow.model.TipoCollegamento;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public class AssetForwarder implements Runnable {
     private static final Logger LOG = LoggerFactory.getLogger(AssetForwarder.class);
 
-    private final ConnectionManager connectionManager;
-    private final ApiClientProvider apiClientProvider;
     private final String filter;
     private final String filterAccessPoint;
     private final String locationAccessPointSctt;
@@ -52,17 +35,9 @@ public class AssetForwarder implements Runnable {
     private final EdgeService edgeService;
     private final PluginEventForwarder eventForwarder;
     private final RequisitionRepository requisitionRepository;
-    private final String hashCacheFile;
-    private final String networkDeviceCacheFile;
-    private final String accessPointCacheFile;
-    private final Map<String, String> hashCache = new HashMap<>();
-    private final Map<String, String> accessPointMap = new HashMap<>();
-    private final Map<String, String> networkDeviceMap = new HashMap<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final AssetSender assetSender;
 
-    public AssetForwarder(ConnectionManager connectionManager,
-                          ApiClientProvider apiClientProvider,
-                          String filter,
+    public AssetForwarder(String filter,
                           String filterAccessPoint,
                           String locationAccessPointSctt,
                           String filterSwitch,
@@ -73,10 +48,8 @@ public class AssetForwarder implements Runnable {
                           EdgeService edgeservice,
                           RequisitionRepository requisitionRepository,
                           PluginEventForwarder eventForwarder,
-                          String assetCacheFilePrefix) {
-        this.connectionManager = Objects.requireNonNull(connectionManager);
-        this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
-        this.filter= Objects.requireNonNull(filter);
+                          AssetSender assetSender) {
+        this.filter = Objects.requireNonNull(filter);
         this.filterAccessPoint = Objects.requireNonNull(filterAccessPoint);
         this.locationAccessPointSctt = Objects.requireNonNull(locationAccessPointSctt);
         this.filterSwitch = Objects.requireNonNull(filterSwitch);
@@ -87,164 +60,46 @@ public class AssetForwarder implements Runnable {
         this.edgeService = Objects.requireNonNull(edgeservice);
         this.eventForwarder = Objects.requireNonNull(eventForwarder);
         this.requisitionRepository = Objects.requireNonNull(requisitionRepository);
-        this.hashCacheFile = assetCacheFilePrefix+".properties";
-        this.networkDeviceCacheFile = assetCacheFilePrefix+"-NetworkDevice.properties";
-        this.accessPointCacheFile = assetCacheFilePrefix+"-AccessPoint.properties";
+        this.assetSender = Objects.requireNonNull(assetSender);
 
         LOG.info("init: filter: {}", this.filter);
-
         LOG.info("init: filterAccessPoint: {}, filterSwitch: {}, filterFirewall: {}, filterModemLte: {}, filterModemXdsl: {}",
                 this.filterAccessPoint, this.filterSwitch, this.filterFirewall, this.filterModemLte, this.filterModemXdsl);
-
-        loadCache();
-        loadNetworkDeviceCache();
-        loadAccessPointCache();
     }
 
     public static String getAssetTag(Node node) {
-        return getAssetTag(node.getForeignSource(),node.getForeignId());
+        return getAssetTag(node.getForeignSource(), node.getForeignId());
     }
 
     public static String getAssetTag(String fs, String fid) {
-        return fs+"::"+fid;
-    }
-
-    private void loadCache() {
-        Path path = Paths.get(hashCacheFile);
-        if (!Files.exists(path)) {
-            LOG.info("loadCache: hash cache file not found, starting fresh: {}", hashCacheFile);
-            return;
-        }
-        Properties props = new Properties();
-        try (InputStream in = Files.newInputStream(path)) {
-            props.load(in);
-            props.forEach((k, v) -> hashCache.put((String) k,  (String) v));
-            LOG.info("loadCache: loaded {} entries from {}", hashCache.size(), hashCacheFile);
-        } catch (IOException e) {
-            LOG.warn("loadCache: failed to read cache file {}, starting fresh", hashCacheFile, e);
-        }
-    }
-
-    private void loadNetworkDeviceCache() {
-        Path path = Paths.get(networkDeviceCacheFile);
-        if (!Files.exists(path)) {
-            LOG.info("loadNetworkDeviceCache: cache file not found, starting fresh: {}", networkDeviceCacheFile);
-            return;
-        }
-        Properties props = new Properties();
-        try (InputStream in = Files.newInputStream(path)) {
-            props.load(in);
-            props.forEach((k, v) -> networkDeviceMap.put((String) k,  (String) v));
-            LOG.info("loadNetworkDeviceCache: loaded {} entries from {}", networkDeviceMap.size(), networkDeviceCacheFile);
-        } catch (IOException e) {
-            LOG.warn("loadNetworkDeviceCache: failed to read cache file {}, starting fresh", networkDeviceCacheFile, e);
-        }
-    }
-
-    private void loadAccessPointCache() {
-        Path path = Paths.get(accessPointCacheFile);
-        if (!Files.exists(path)) {
-            LOG.info("loadAccessPointCache: cache file not found, starting fresh: {}", accessPointCacheFile);
-            return;
-        }
-        Properties props = new Properties();
-        try (InputStream in = Files.newInputStream(path)) {
-            props.load(in);
-            props.forEach((k, v) -> accessPointMap.put((String) k,  (String) v));
-            LOG.info("accessPointCachePath: loaded {} entries from {}", accessPointMap.size(), accessPointCacheFile);
-        } catch (IOException e) {
-            LOG.warn("accessPointCachePath: failed to read cache file {}, starting fresh", accessPointCacheFile, e);
-        }
-    }
-
-    private boolean isUnchanged(String assetTag, int hash) {
-            return String.valueOf(hash).equals(hashCache.get(assetTag));
-    }
-
-    private void updateCache(String assetTag, int hash) {
-        hashCache.put(assetTag, String.valueOf(hash));
-        Properties props = new Properties();
-        props.putAll(hashCache);
-        try (OutputStream out = Files.newOutputStream(Paths.get(hashCacheFile))) {
-            props.store(out, null);
-        } catch (IOException e) {
-            LOG.error("updateCache: failed to write cache file {}", hashCacheFile, e);
-        }
-    }
-
-    private void updateDataCache(NetworkDevice networkDevice) {
-        networkDeviceMap.put(networkDevice.getAssetTag(), toJson(networkDevice));
-        Properties props = new Properties();
-        props.putAll(networkDeviceMap);
-        try (OutputStream out = Files.newOutputStream(Paths.get(networkDeviceCacheFile))) {
-            props.store(out, null);
-        } catch (IOException e) {
-            LOG.error("updateDataCache: failed to write data cache file {}", networkDeviceCacheFile, e);
-        }
-    }
-
-    private void updateDataCache(AccessPoint accessPoint) {
-        accessPointMap.put(accessPoint.getAssetTag(), toJson(accessPoint));
-        Properties props = new Properties();
-        props.putAll(accessPointMap);
-        try (OutputStream out = Files.newOutputStream(Paths.get(accessPointCacheFile))) {
-            props.store(out, null);
-        } catch (IOException e) {
-            LOG.error("updateDataCache: failed to write data cache file {}", accessPointCacheFile, e);
-        }
+        return fs + "::" + fid;
     }
 
     public void clearCache() {
-        hashCache.clear();
-        networkDeviceMap.clear();
-        accessPointMap.clear();
-        for (String file : new String[]{hashCacheFile, networkDeviceCacheFile, accessPointCacheFile}) {
-            try {
-                Files.deleteIfExists(Paths.get(file));
-                LOG.info("clearCache: deleted {}", file);
-            } catch (IOException e) {
-                LOG.error("clearCache: failed to delete {}", file, e);
-            }
-        }
+        assetSender.clearCache();
     }
 
     public Map<String, String> getNetworkDeviceCache() {
-        return networkDeviceMap;
+        return assetSender.getNetworkDeviceCache();
     }
 
     public Map<String, String> getAccessPointCache() {
-        return accessPointMap;
+        return assetSender.getAccessPointCache();
     }
 
     public NetworkDevice toNetworkDevice(String json) {
-        try {
-            return objectMapper.readValue(json, NetworkDevice.class);
-        } catch (JsonProcessingException e) {
-            LOG.error("fromJson: failed to unserialize {}", json, e);
-        }
-        return null;
+        return assetSender.toNetworkDevice(json);
     }
 
     public AccessPoint toAccessPoint(String json) {
-        try {
-            return objectMapper.readValue(json, AccessPoint.class);
-        } catch (JsonProcessingException e) {
-            LOG.error("fromJson: failed to unserialize {}", json, e);
-        }
-        return null;
+        return assetSender.toAccessPoint(json);
     }
 
-    private String toJson(Object obj) {
-        try {
-            return objectMapper.writeValueAsString(obj);
-        } catch (JsonProcessingException e) {
-            LOG.error("toJson: failed to serialize {}", obj, e);
-            return "";
-        }
+    public boolean disableAsset(String assetTag) {
+        return assetSender.disableAsset(assetTag);
     }
 
     public void sendAsset(Node node) {
-        // Map the alarm to the corresponding model object that the API requires
         LOG.info("sendAsset: processing node with id:{} fs:{}, fid:{}",
                 node.getId(),
                 node.getForeignSource(),
@@ -256,7 +111,7 @@ public class AssetForwarder implements Runnable {
             return;
         }
         RequisitionNode rn = null;
-        for (RequisitionNode currRn: req.getNodes()) {
+        for (RequisitionNode currRn : req.getNodes()) {
             if (currRn.getForeignId().equals(node.getForeignId())) {
                 rn = currRn;
                 break;
@@ -277,7 +132,7 @@ public class AssetForwarder implements Runnable {
 
         if (node.getCategories().contains(filterAccessPoint)) {
             AccessPoint ap = toAccessPoint(node, edgeService.getParent(node), ipaddress);
-            if (isUnchanged(ap.getAssetTag(), ap.hashCode())) {
+            if (assetSender.isUnchanged(ap.getAssetTag(), ap.hashCode())) {
                 LOG.info("sendAsset: AccessPoint skipping unchanged asset: {}", ap.getAssetTag());
                 return;
             }
@@ -286,7 +141,7 @@ public class AssetForwarder implements Runnable {
         }
         if (node.getCategories().contains(filterSwitch)) {
             NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.SWITCH);
-            if (isUnchanged(nd.getAssetTag(), nd.hashCode())) {
+            if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
                 LOG.info("sendAsset: NetworkDevice Switch skipping unchanged asset: {}", nd.getAssetTag());
                 return;
             }
@@ -295,7 +150,7 @@ public class AssetForwarder implements Runnable {
         }
         if (node.getCategories().contains(filterFirewall)) {
             NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.FIREWALL);
-            if (isUnchanged(nd.getAssetTag(), nd.hashCode())) {
+            if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
                 LOG.info("sendAsset: NetworkDevice Firewall skipping unchanged asset: {}", nd.getAssetTag());
                 return;
             }
@@ -304,7 +159,7 @@ public class AssetForwarder implements Runnable {
         }
         if (node.getCategories().contains(filterModemLte)) {
             NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_LTE);
-            if (isUnchanged(nd.getAssetTag(), nd.hashCode())) {
+            if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
                 LOG.info("sendAsset: NetworkDevice Modem LTE skipping unchanged asset: {}", nd.getAssetTag());
                 return;
             }
@@ -313,7 +168,7 @@ public class AssetForwarder implements Runnable {
         }
         if (node.getCategories().contains(filterModemXdsl)) {
             NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_XDSL);
-            if (isUnchanged(nd.getAssetTag(), nd.hashCode())) {
+            if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
                 LOG.info("sendAsset: NetworkDevice Model XDSL skipping unchanged asset: {}", nd.getAssetTag());
                 return;
             }
@@ -325,64 +180,18 @@ public class AssetForwarder implements Runnable {
     }
 
     public void sendAccessPoint(Node node, AccessPoint accessPoint) {
-        LOG.info("sendAccessPoint: converted to {}", accessPoint);
-        try {
-            apiClientProvider.send(
-                    accessPoint,
-                    ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
-            updateCache(accessPoint.getAssetTag(), accessPoint.hashCode());
-            updateDataCache(accessPoint);
-            if (node != null) {
-                eventForwarder.sendAssetSuccessful(node.getId(), accessPoint.getAssetTag());
-            } else {
-                eventForwarder.sendAssetSuccessful(accessPoint.getAssetTag());
-            }
-            LOG.info("sendAccessPoint: forwarded: {}",  accessPoint);
-        } catch (ApiException e) {
-            LOG.error("sendAccessPoint: failed to send:  {}, message: {}, body: {}",
-                    node,
-                    e.getMessage(),
-                    e.getResponseBody(), e);
-            if (node != null) {
-                eventForwarder.sendAssetFailed(node.getId(), e.getMessage(), accessPoint.getAssetTag());
-            } else {
-                eventForwarder.sendAssetFailed(e.getMessage(), accessPoint.getAssetTag());
-            }
-        }
+        assetSender.enqueue(node, accessPoint);
     }
 
     public void sendNetworkDevice(Node node, NetworkDevice networkDevice) {
-        LOG.info("sendNetworkDevice: converted to {}", networkDevice);
-        try {
-            apiClientProvider.send(
-                    networkDevice,
-                    ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
-            updateCache(networkDevice.getAssetTag(), networkDevice.hashCode());
-            updateDataCache(networkDevice);
-            if (node != null) {
-                eventForwarder.sendAssetSuccessful(node.getId(), networkDevice.getAssetTag());
-            } else {
-                eventForwarder.sendAssetSuccessful(networkDevice.getAssetTag());
-            }
-            LOG.info("sendNetworkDevice: forwarded: {}",  networkDevice);
-        } catch (ApiException e) {
-            if (node != null) {
-                eventForwarder.sendAssetFailed(node.getId(), e.getMessage(), networkDevice.getAssetTag());
-            } else {
-                eventForwarder.sendAssetFailed(e.getMessage(), networkDevice.getAssetTag());
-            }
-            LOG.error("sendNetworkDevice: failed to send:  {}, message: {}, body: {}",
-                    node,
-                    e.getMessage(),
-                    e.getResponseBody(), e);
-        }
+        assetSender.enqueue(node, networkDevice);
     }
 
     public static String getLocation(Node node) {
         if (node.getAssetRecord().getDescription() == null
                 || node.getAssetRecord().getDescription().isBlank()
-                || node.getAssetRecord().getDescription().isEmpty())  {
-            return node.getAssetRecord().getGeolocation().getAddress1()+ ", " + node.getAssetRecord().getGeolocation().getCity();
+                || node.getAssetRecord().getDescription().isEmpty()) {
+            return node.getAssetRecord().getGeolocation().getAddress1() + ", " + node.getAssetRecord().getGeolocation().getCity();
         }
         return node.getAssetRecord().getDescription();
     }
@@ -395,19 +204,14 @@ public class AssetForwarder implements Runnable {
         networkDevice.setAssetTag(getAssetTag(node));
         networkDevice.setIpAddress(ipaddress);
         networkDevice.setParentalNode(parentNodeLabel);
-        networkDevice.setModello(node.getAssetRecord().getOperatingSystem()+":"+node.getAssetRecord().getModelNumber());
+        networkDevice.setModello(node.getAssetRecord().getOperatingSystem() + ":" + node.getAssetRecord().getModelNumber());
         networkDevice.setMarca(node.getAssetRecord().getVendor());
         networkDevice.setModelId("Apparati di Rete");
         networkDevice.setInstallStatus(InstallStatus.ATTIVO);
-
-        //location
         networkDevice.setLocation(getLocation(node));
         networkDevice.setLatitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLatitude()));
         networkDevice.setLongitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLongitude()));
-
-        //specific network device
         networkDevice.setTipoApparato(tipoApparato);
-
         return networkDevice;
     }
 
@@ -419,17 +223,13 @@ public class AssetForwarder implements Runnable {
         accessPoint.setAssetTag(getAssetTag(node));
         accessPoint.setIpAddress(ipaddress);
         accessPoint.setParentalNode(parentNodeLabel);
-        accessPoint.setModello(node.getAssetRecord().getOperatingSystem()+":"+node.getAssetRecord().getModelNumber());
+        accessPoint.setModello(node.getAssetRecord().getOperatingSystem() + ":" + node.getAssetRecord().getModelNumber());
         accessPoint.setMarca(node.getAssetRecord().getVendor());
         accessPoint.setModelId("Access Point");
         accessPoint.setInstallStatus(InstallStatus.ATTIVO);
-
-        //location
         accessPoint.setLocation(getLocation(node));
         accessPoint.setLatitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLatitude()));
         accessPoint.setLongitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLongitude()));
-
-        //specific access point
         accessPoint.setTipoCollegamento(getTipoCollegamento(node.getLocation()));
         accessPoint.setSerialNumber(node.getAssetRecord().getAssetNumber());
         return accessPoint;
@@ -439,43 +239,10 @@ public class AssetForwarder implements Runnable {
         if (location.equals("Default")) {
             return TipoCollegamento.CAMPUS;
         }
-        if (location.equals(locationAccessPointSctt)){
+        if (location.equals(locationAccessPointSctt)) {
             return TipoCollegamento.SCTT;
         }
         return TipoCollegamento.ALTRO;
-    }
-
-    public boolean disableAsset(String assetTag) {
-        if (networkDeviceMap.containsKey(assetTag)) {
-            NetworkDevice nd = toNetworkDevice(networkDeviceMap.get(assetTag));
-            if (nd == null) {
-                LOG.error("disableAsset: failed to deserialize NetworkDevice for {}", assetTag);
-                return false;
-            }
-            if (nd.getInstallStatus().equals(InstallStatus.DISATTIVO)) {
-                LOG.info("disableAsset: Already Disabled NetworkDevice for {}", assetTag);
-                return true;
-            }
-            nd.setInstallStatus(InstallStatus.DISATTIVO);
-            sendNetworkDevice(null, nd);
-            return true;
-        }
-        if (accessPointMap.containsKey(assetTag)) {
-            AccessPoint ap = toAccessPoint(accessPointMap.get(assetTag));
-            if (ap == null) {
-                LOG.error("disableAsset: failed to deserialize AccessPoint for {}", assetTag);
-                return false;
-            }
-            if (ap.getInstallStatus().equals(InstallStatus.DISATTIVO)) {
-                LOG.info("disableAsset: Already Disabled AccessPoint for {}", assetTag);
-                return true;
-            }
-            ap.setInstallStatus(InstallStatus.DISATTIVO);
-            sendAccessPoint(null, ap);
-            return true;
-        }
-        LOG.warn("disableAsset: asset not found in cache: {}", assetTag);
-        return false;
     }
 
     @Override
@@ -485,11 +252,10 @@ public class AssetForwarder implements Runnable {
         LOG.info("run: found: {} nodes", nodes.size());
         Set<String> currentAssetTags = nodes.stream().map(AssetForwarder::getAssetTag).collect(Collectors.toSet());
         currentAssetTags.forEach(h -> LOG.debug("run: found: {} hash", h));
-        Set<String> cachedDeletedAssetTags = hashCache.keySet().stream()
+        Set<String> cachedDeletedAssetTags = assetSender.getCachedAssetTags().stream()
                 .filter(k -> !currentAssetTags.contains(k))
                 .collect(Collectors.toSet());
-        cachedDeletedAssetTags.forEach(this::disableAsset);
+        cachedDeletedAssetTags.forEach(assetSender::disableAsset);
         nodes.forEach(this::sendAsset);
     }
-
 }

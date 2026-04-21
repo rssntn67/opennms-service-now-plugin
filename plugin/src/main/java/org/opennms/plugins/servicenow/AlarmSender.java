@@ -1,6 +1,7 @@
 package org.opennms.plugins.servicenow;
 
 import org.opennms.integration.api.v1.model.Alarm;
+import org.opennms.integration.api.v1.model.Node;
 import org.opennms.plugins.servicenow.client.ApiClientProvider;
 import org.opennms.plugins.servicenow.client.ApiException;
 import org.opennms.plugins.servicenow.client.ClientManager;
@@ -20,37 +21,37 @@ import java.util.concurrent.TimeoutException;
 public class AlarmSender {
     private static final Logger LOG = LoggerFactory.getLogger(AlarmSender.class);
 
+    private record AlarmNode(Alarm alarm, Node node, String parent) {
+    }
+
     private final ConnectionManager connectionManager;
     private final ApiClientProvider apiClientProvider;
-    private final EdgeService edgeService;
     private final PluginEventForwarder eventForwarder;
     private final int maxRetry;
     private final long retryDelay;
     private final long timeoutMs;
 
-    private final LinkedBlockingQueue<Alarm> queue = new LinkedBlockingQueue<>();
+    private final LinkedBlockingQueue<AlarmNode> queue = new LinkedBlockingQueue<>();
     private volatile boolean running = false;
     private ExecutorService queueThread;
     private final ExecutorService sendThread = Executors.newSingleThreadExecutor(r -> new Thread(r, "alarm-forwarder-send"));
 
     public AlarmSender(ConnectionManager connectionManager,
                        ApiClientProvider apiClientProvider,
-                       EdgeService edgeService,
                        PluginEventForwarder eventForwarder,
                        int maxRetry,
                        long retryDelay,
                        long timeoutMs) {
         this.connectionManager = connectionManager;
         this.apiClientProvider = apiClientProvider;
-        this.edgeService = edgeService;
         this.eventForwarder = eventForwarder;
         this.maxRetry = maxRetry;
         this.retryDelay = retryDelay;
         this.timeoutMs = timeoutMs;
     }
 
-    public void enqueue(Alarm alarm) {
-        queue.offer(alarm);
+    public void enqueue(Alarm alarm, Node node, String parent) {
+        queue.offer(new AlarmNode(alarm, node, parent));
     }
 
     public void start() {
@@ -72,18 +73,20 @@ public class AlarmSender {
     private void processQueue() {
         while (running) {
             try {
-                Alarm alarm = queue.poll(1, TimeUnit.SECONDS);
-                if (alarm == null) {
+                AlarmNode alarmNode = queue.poll(1, TimeUnit.SECONDS);
+                if (alarmNode == null) {
                     continue;
                 }
-                Future<?> future = sendThread.submit(() -> sendAlarm(alarm, 0));
+                Future<?> future = sendThread.submit(() -> sendAlarm(alarmNode, 0));
                 try {
                     future.get(timeoutMs, TimeUnit.MILLISECONDS);
                 } catch (TimeoutException e) {
                     future.cancel(true);
-                    LOG.warn("processQueue: send timed out after {}ms for reduction key: {}", timeoutMs, alarm.getReductionKey());
+                    LOG.warn("processQueue: send timed out after {}ms for reduction key: {}", timeoutMs, alarmNode.alarm().getReductionKey());
+                    eventForwarder.sendAlarmFailed(alarmNode.node().getId(), alarmNode.alarm().getReductionKey(), e.getMessage());
                 } catch (ExecutionException e) {
-                    LOG.error("processQueue: send failed for reduction key: {}", alarm.getReductionKey(), e.getCause());
+                    LOG.error("processQueue: send failed for reduction key: {}", alarmNode.alarm().getReductionKey(), e.getCause());
+                    eventForwarder.sendAlarmFailed(alarmNode.node().getId(), alarmNode.alarm().getReductionKey(), e.getMessage());
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -92,13 +95,14 @@ public class AlarmSender {
         }
     }
 
-    private void sendAlarm(Alarm alarm, int retry) {
+    private void sendAlarm(AlarmNode alarmNode, int retry) {
+        Alarm alarm = alarmNode.alarm();
         if (maxRetry == retry) {
             LOG.warn("sendAlarm: skipping alarm with reduction key {}, too many retry {}", alarm.getReductionKey(), retry);
         }
         retry++;
         LOG.info("sendAlarm: processing alarm with reduction key: {}, retry: {}", alarm.getReductionKey(), retry);
-        Alert alert = AlarmForwarder.toAlert(alarm, edgeService.getParent(alarm.getNode()));
+        Alert alert = AlarmForwarder.toAlert(alarmNode.alarm(), alarmNode.parent());
         LOG.info("sendAlarm: converted to {}", alert);
 
         try {
@@ -119,7 +123,7 @@ public class AlarmSender {
                 Thread.currentThread().interrupt();
                 return;
             }
-            sendAlarm(alarm, retry);
+            sendAlarm(alarmNode, retry);
         }
     }
 }

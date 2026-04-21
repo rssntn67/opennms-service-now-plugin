@@ -81,7 +81,6 @@
           init-method="start" destroy-method="stop">
         <argument ref="connectionManager"/>
         <argument ref="apiClientProvider"/>
-        <argument ref="edgeService"/>
         <argument ref="pluginEventForwarder"/>
         <argument value="${retry}"/>
         <argument value="${retry.delay}"/>
@@ -92,16 +91,26 @@
     <bean id="alarmForwarder" class="org.opennms.plugins.servicenow.AlarmForwarder">
         <argument value="${filter}"/>
         <argument ref="alarmSender"/>
+        <argument ref="edgeService"/>
     </bean>
     <!-- Expose the forwarder as a AlarmLifecycleListener so we get callbacks -->
     <service interface="org.opennms.integration.api.v1.alarms.AlarmLifecycleListener" ref="alarmForwarder"/>
     <!-- Expose the forwarder directly for access from our shell commands -->
     <service interface="org.opennms.plugins.servicenow.AlarmForwarder" ref="alarmForwarder"/>
 
-    <!-- Build our forwarder bean -->
-    <bean id="assetForwarder" class="org.opennms.plugins.servicenow.AssetForwarder">
+    <bean id="assetSender" class="org.opennms.plugins.servicenow.AssetSender"
+          init-method="start" destroy-method="stop">
         <argument ref="connectionManager"/>
         <argument ref="apiClientProvider"/>
+        <argument ref="pluginEventForwarder"/>
+        <argument value="${retry}"/>
+        <argument value="${retry.delay}"/>
+        <argument value="${send.timeout}"/>
+        <argument value="${asset.cache.file.prefix}"/>
+    </bean>
+
+    <!-- Build our forwarder bean -->
+    <bean id="assetForwarder" class="org.opennms.plugins.servicenow.AssetForwarder">
         <argument value="${filter}"/>
         <argument value="${filter.accesspoint}"/>
         <argument value="${location.accesspoint.sctt}"/>
@@ -113,7 +122,7 @@
         <argument ref="edgeService"/>
         <argument ref="requisitionRepository"/>
         <argument ref="pluginEventForwarder"/>
-        <argument value="${asset.cache.file.prefix}"/>
+        <argument ref="assetSender"/>
     </bean>
     <!-- Expose the forwarder directly for access from our shell commands -->
     <service interface="org.opennms.plugins.servicenow.AssetForwarder" ref="assetForwarder"/>
