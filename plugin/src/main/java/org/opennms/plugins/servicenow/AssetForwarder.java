@@ -131,7 +131,7 @@ public class AssetForwarder implements Runnable {
         String ipaddress = ri.getIpAddress().getHostAddress();
 
         if (node.getCategories().contains(filterAccessPoint)) {
-            AccessPoint ap = toAccessPoint(node, edgeService.getParent(node), ipaddress);
+            AccessPoint ap = toAccessPoint(node, edgeService.getParent(node), ipaddress, locationAccessPointSctt);
             if (assetSender.isUnchanged(ap.getAssetTag(), ap.hashCode())) {
                 LOG.info("sendAsset: AccessPoint skipping unchanged asset: {}", ap.getAssetTag());
                 return;
@@ -196,7 +196,7 @@ public class AssetForwarder implements Runnable {
         return node.getAssetRecord().getDescription();
     }
 
-    public NetworkDevice toNetworkDevice(Node node, String parentNodeLabel, String ipaddress, TipoApparato tipoApparato) {
+    public static NetworkDevice toNetworkDevice(Node node, String parentNodeLabel, String ipaddress, TipoApparato tipoApparato) {
         NetworkDevice networkDevice = new NetworkDevice();
         networkDevice.setSysClassName("u_cmdb_ci_apparati_di_rete");
         networkDevice.setCategoria("Reti Telecomunicazioni");
@@ -216,6 +216,10 @@ public class AssetForwarder implements Runnable {
     }
 
     public AccessPoint toAccessPoint(Node node, String parentNodeLabel, String ipaddress) {
+        return toAccessPoint(node, parentNodeLabel, ipaddress, locationAccessPointSctt);
+    }
+
+    public static AccessPoint toAccessPoint(Node node, String parentNodeLabel, String ipaddress, String locationAccessPointSctt) {
         AccessPoint accessPoint = new AccessPoint();
         accessPoint.setSysClassName("u_cmdb_ci_access_point");
         accessPoint.setCategoria("Wifi");
@@ -230,12 +234,12 @@ public class AssetForwarder implements Runnable {
         accessPoint.setLocation(getLocation(node));
         accessPoint.setLatitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLatitude()));
         accessPoint.setLongitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLongitude()));
-        accessPoint.setTipoCollegamento(getTipoCollegamento(node.getLocation()));
+        accessPoint.setTipoCollegamento(getTipoCollegamento(node.getLocation(), locationAccessPointSctt));
         accessPoint.setSerialNumber(node.getAssetRecord().getAssetNumber());
         return accessPoint;
     }
 
-    private TipoCollegamento getTipoCollegamento(String location) {
+    private static TipoCollegamento getTipoCollegamento(String location, String locationAccessPointSctt) {
         if (location.equals("Default")) {
             return TipoCollegamento.CAMPUS;
         }
