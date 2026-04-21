@@ -23,14 +23,16 @@ OpenNMS plugin (OSGi bundle, version 2.0.0-SNAPSHOT) that forwards alarms and ne
 
 ## Architecture
 
-**Alarm data flow:** OpenNMS alarms → `AlarmForwarder` (filter by UEI + node category) → `EdgeService.getParent()` for topology enrichment → `Alert` DTO → `ApiClientProvider` (OAuth2 token caching) → ServiceNow API
+**Alarm data flow:** OpenNMS alarms → `AlarmForwarder` (filter by UEI + node category) → `EdgeService.getParent()` for topology enrichment → `AlarmSender` (queued, async, with retry + timeout) → `Alert` DTO → `ApiClientProvider` (OAuth2 token caching) → ServiceNow API
 
-**Asset data flow:** `PluginScheduler` triggers `AssetForwarder` → discovers nodes by category (WiFi, Switch, Firewall, LTE, XDSL) → builds `AccessPoint`/`NetworkDevice` DTOs → hash-based change detection against cache → `ApiClientProvider` → ServiceNow API
+**Asset data flow:** `PluginScheduler` triggers `AssetForwarder` → discovers nodes by category (WiFi, Switch, Firewall, LTE, XDSL) → builds `AccessPoint`/`NetworkDevice` DTOs → `AssetSender` (queued, async, hash-based change detection, retry + timeout) → `ApiClientProvider` → ServiceNow API
 
 Key components in `org.opennms.plugins.servicenow`:
 
-- **AlarmForwarder** — Implements `AlarmLifecycleListener`. Filters alarms (nodeDown, interfaceDown, nodeLostService/ICMP) by configurable category filter. Converts to `Alert` and sends via API client. Processes alarm snapshot only once on first callback (controlled by `start` flag).
-- **AssetForwarder** — Implements `Runnable`. Discovers network assets (AccessPoints, NetworkDevices) from OpenNMS node inventory. Maintains three-tier cache system (hash cache for change detection, JSON caches for NetworkDevice and AccessPoint). Cache persisted to disk at `asset.cache.file.prefix`. Exposes shell-accessible methods: `clearCache()`, `getNetworkDeviceCache()`, `getAccessPointCache()`, `disableAsset()`.
+- **AlarmForwarder** — Implements `AlarmLifecycleListener`. Filters alarms (nodeDown, interfaceDown, nodeLostService/ICMP) by configurable category filter. Enqueues matching alarms into `AlarmSender`. Processes alarm snapshot only once on first callback (controlled by `starting` flag).
+- **AlarmSender** — Owns the alarm send queue and a dedicated executor pair (queue thread + send thread). Dequeues `AlarmNode` records, converts via `AlarmForwarder.toAlert()`, sends to ServiceNow with configurable retry and per-alarm timeout. Fires `PluginEventForwarder` events on success/failure. Lifecycle managed by Blueprint (`init-method="start"`, `destroy-method="stop"`).
+- **AssetForwarder** — Implements `Runnable`. Discovers network assets (AccessPoints, NetworkDevices) from OpenNMS node inventory. Delegates change detection, caching, and sending to `AssetSender`. Static helpers `toNetworkDevice(Node,…)` and `toAccessPoint(Node,…,locationSctt)` build DTOs from node data. Exposes shell-accessible methods (`clearCache`, `getNetworkDeviceCache`, `getAccessPointCache`, `disableAsset`) that delegate to `AssetSender`.
+- **AssetSender** — Owns separate AP and ND send queues and a dedicated executor pair. Maintains the three-tier cache: hash cache for change detection (`isUnchanged`), JSON caches for NetworkDevice and AccessPoint data. All caches persisted to disk at `asset.cache.file.prefix`. Handles retry and per-asset timeout. Exposes `clearCache()`, `getCachedAssetTags()`, `getNetworkDeviceCache()`, `getAccessPointCache()`, `disableAsset()`. Lifecycle managed by Blueprint.
 - **EdgeService** — Discovers network topology via `EdgeDao`/`NodeDao`. Builds parent-child relationship maps using depth-limited graph traversal and `TopologyEdge.EndpointVisitor` pattern. Provides `getParent()` used by AlarmForwarder.
 - **PluginScheduler** — Implements `HealthCheck`. Schedules both `EdgeService` and `AssetForwarder` with configurable delays. AssetForwarder starts 10× later than EdgeService to allow topology to be built first.
 - **ApiClient / ApiClientProviderImpl** — OkHttp-based HTTP client. Handles OAuth2 client credentials flow with token caching (5s expiry buffer). Supports optional SSL bypass for dev. Sends `Alert`, `NetworkDevice`, and `AccessPoint` payloads.
@@ -104,9 +106,9 @@ Runtime properties are set in `/opt/opennms/etc/org.opennms.plugins.servicenow.c
 | `filter.networkdevice.firewall` | `Firewall` | Category for firewalls |
 | `filter.networkdevice.modem.lte` | `LTE` | Category for LTE modems |
 | `filter.networkdevice.modem.xdsl` | `XDSL` | Category for xDSL modems |
-| `retry` | `3` | Max send attempts per alarm |
+| `retry` | `3` | Max send attempts (alarms and assets) |
 | `retry.delay` | `250` | Base retry delay (ms); multiplied by attempt number |
-| `send.timeout` | `30000` | Per-alarm send timeout (ms); cancels the attempt if exceeded |
+| `send.timeout` | `30000` | Per-send timeout (ms); cancels the attempt if exceeded (alarms and assets) |
 | `token.endpoint` | `token` | OAuth2 token path |
 | `alert.endpoint` | *(ServiceNow alert path)* | REST path for sending alerts |
 | `asset.endpoint` | *(ServiceNow asset path)* | REST path for sending assets |
