@@ -3,8 +3,6 @@ package org.opennms.plugins.servicenow;
 import org.opennms.integration.api.v1.alarms.AlarmLifecycleListener;
 import org.opennms.integration.api.v1.model.Alarm;
 import org.opennms.plugins.servicenow.client.ApiClientProvider;
-import org.opennms.plugins.servicenow.client.ApiException;
-import org.opennms.plugins.servicenow.client.ClientManager;
 import org.opennms.plugins.servicenow.connection.ConnectionManager;
 import org.opennms.plugins.servicenow.model.Alert;
 import org.slf4j.Logger;
@@ -12,10 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AlarmForwarder implements AlarmLifecycleListener {
@@ -25,21 +19,12 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     public static final String ALARM_UEI_INTERFACE_DOWN = "uei.opennms.org/nodes/interfaceDown";
     public static final String ALARM_UEI_SERVICE_DOWN = "uei.opennms.org/nodes/nodeLostService";
 
-    private final ConnectionManager connectionManager;
-    private final ApiClientProvider apiClientProvider;
-    private final String filter;
-    private final AtomicBoolean starting = new AtomicBoolean(true);
-    private final LinkedBlockingQueue<Alarm> queue = new LinkedBlockingQueue<>();
-    private volatile boolean running = false;
-    private ExecutorService senderThread;
-
     private static final int DEFAULT_RETRY = 3;
     private static final long DEFAULT_RETRY_DELAY_MS = 250L;
 
-    private final EdgeService edgeService;
-    private final PluginEventForwarder eventForwarder;
-    private final int retry;
-    private final long retryDelay;
+    private final String filter;
+    private final AtomicBoolean starting = new AtomicBoolean(true);
+    private final AlarmSender alarmSender;
 
     public AlarmForwarder(ConnectionManager connectionManager,
                           ApiClientProvider apiClientProvider,
@@ -48,11 +33,11 @@ public class AlarmForwarder implements AlarmLifecycleListener {
                           PluginEventForwarder eventForwarder,
                           String retry,
                           String retryDelay) {
-        this.connectionManager = Objects.requireNonNull(connectionManager);
-        this.apiClientProvider = Objects.requireNonNull(apiClientProvider);
+        Objects.requireNonNull(connectionManager);
+        Objects.requireNonNull(apiClientProvider);
         this.filter = Objects.requireNonNull(filter);
-        this.edgeService = Objects.requireNonNull(edgeservice);
-        this.eventForwarder = Objects.requireNonNull(eventForwarder);
+        Objects.requireNonNull(edgeservice);
+        Objects.requireNonNull(eventForwarder);
         int parsedRetry;
         try {
             parsedRetry = Integer.parseInt(retry);
@@ -60,7 +45,6 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             LOG.warn("Invalid retry value '{}', using default {}", retry, DEFAULT_RETRY);
             parsedRetry = DEFAULT_RETRY;
         }
-        this.retry = parsedRetry;
         long parsedDelay;
         try {
             parsedDelay = Long.parseLong(retryDelay);
@@ -68,43 +52,22 @@ public class AlarmForwarder implements AlarmLifecycleListener {
             LOG.warn("Invalid retryDelay value '{}', using default {}", retryDelay, DEFAULT_RETRY_DELAY_MS);
             parsedDelay = DEFAULT_RETRY_DELAY_MS;
         }
-        this.retryDelay = parsedDelay;
-        LOG.info("init: filter: {}, retry: {}, retryDelay: {}", this.filter, this.retry, this.retryDelay);
+        this.alarmSender = new AlarmSender(connectionManager, apiClientProvider, edgeservice, eventForwarder, parsedRetry, parsedDelay);
+        LOG.info("init: filter: {}, retry: {}, retryDelay: {}", this.filter, parsedRetry, parsedDelay);
     }
 
     public void start() {
-        running = true;
-        senderThread = Executors.newSingleThreadExecutor(r -> new Thread(r, "alarm-forwarder-sender"));
-        senderThread.submit(this::processQueue);
-        LOG.info("start: alarm sender thread started");
+        alarmSender.start();
     }
 
     public void stop() {
-        running = false;
-        if (senderThread != null) {
-            senderThread.shutdownNow();
-        }
-        LOG.info("stop: alarm sender thread stopped");
-    }
-
-    private void processQueue() {
-        while (running) {
-            try {
-                Alarm alarm = queue.poll(1, TimeUnit.SECONDS);
-                if (alarm != null) {
-                    sendAlarm(alarm, 0);
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-        }
+        alarmSender.stop();
     }
 
     @Override
     public void handleNewOrUpdatedAlarm(Alarm alarm) {
         if (isToForward(alarm))
-            queue.offer(alarm);
+            alarmSender.enqueue(alarm);
     }
 
     private boolean isToForward(Alarm alarm) {
@@ -124,46 +87,13 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         return true;
     }
 
-    private void sendAlarm(Alarm alarm, int retry) {
-
-        if (this.retry == retry) {
-            LOG.warn("sendAlarm: skipping alarm with reduction key {}, too many retry {}", alarm.getReductionKey(), retry);
-        }
-        retry++;
-        LOG.info("sendAlarm: processing alarm with reduction key: {}, retry: {}", alarm.getReductionKey(), retry);
-        // Map the alarm to the corresponding model object that the API requires
-        Alert alert = toAlert(alarm, edgeService.getParent(alarm.getNode()));
-        LOG.info("sendAlarm: converted to {}", alert );
-
-        try {
-            apiClientProvider.send(
-                    alert,
-                    ClientManager.asApiClientCredentials(connectionManager.getConnection().orElseThrow()));
-            eventForwarder.sendAlarmSuccessful(alarm.getNode().getId(), alarm.getReductionKey());
-            LOG.info("sendAlarm: forwarded: id={} asset={}, node={}, parent={}", alert.getId(), alert.getAsset(), alert.getNode(), alert.getParentalNodeLabel());
-        } catch (ApiException e) {
-            eventForwarder.sendAlarmFailed(alarm.getNode().getId(), alarm.getReductionKey(), e.getMessage());
-            LOG.error("sendAlarm: failed to send: alarm {}, message: {}, body: {}",
-                    alarm.getReductionKey(),
-                    e.getMessage(),
-                    e.getResponseBody(), e);
-            try {
-                Thread.sleep(retryDelay * retry);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-            sendAlarm(alarm, retry);
-        }
-    }
-
     @Override
     public void handleAlarmSnapshot(List<Alarm> alarms) {
         LOG.debug("handleAlarmSnapshot: got {} alarms", alarms.size());
         if (!starting.get())
             return;
         LOG.info("handleAlarmSnapshot: starting adding {} alarms to forward", alarms.size());
-        alarms.stream().filter(this::isToForward).forEach(queue::offer);
+        alarms.stream().filter(this::isToForward).forEach(alarmSender::enqueue);
         starting.set(false);
     }
 
@@ -204,12 +134,10 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         };
     }
 
-
     private static Alert.Status toStatus(Alarm alarm) {
         return switch (alarm.getSeverity()) {
             case INDETERMINATE, CLEARED, NORMAL -> Alert.Status.UP;
             default -> Alert.Status.DOWN;
         };
     }
-
 }
