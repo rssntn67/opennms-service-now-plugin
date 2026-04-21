@@ -288,8 +288,18 @@ public class AssetSender {
                     } catch (TimeoutException e) {
                         future.cancel(true);
                         LOG.warn("processQueue: send timed out after {}ms for AccessPoint: {}", timeoutMs, ap);
+                        if (ap.n() != null) {
+                            eventForwarder.sendAssetFailed(ap.n().getId(), e.getMessage(), ap.ap().getAssetTag());
+                        } else {
+                            eventForwarder.sendAssetFailed(e.getMessage(), ap.ap().getAssetTag());
+                        }
                     } catch (ExecutionException e) {
                         LOG.error("processQueue: send failed for AccessPoint: {}", ap, e.getCause());
+                        if (ap.n() != null) {
+                            eventForwarder.sendAssetFailed(ap.n().getId(), e.getMessage(), ap.ap().getAssetTag());
+                        } else {
+                            eventForwarder.sendAssetFailed(e.getMessage(), ap.ap().getAssetTag());
+                        }
                     }
                 }
             } catch (InterruptedException e) {
@@ -305,8 +315,18 @@ public class AssetSender {
                     } catch (TimeoutException e) {
                         future.cancel(true);
                         LOG.warn("processQueue: send timed out after {}ms for NetworkDevice: {}", timeoutMs, nd);
+                        if (nd.n() != null) {
+                            eventForwarder.sendAssetFailed(nd.n().getId(), e.getMessage(), nd.nd().getAssetTag());
+                        } else {
+                            eventForwarder.sendAssetFailed(e.getMessage(), nd.nd().getAssetTag());
+                        }
                     } catch (ExecutionException e) {
                         LOG.error("processQueue: send failed for NetworkDevice: {}", nd, e.getCause());
+                        if (nd.n() != null) {
+                            eventForwarder.sendAssetFailed(nd.n().getId(), e.getMessage(), nd.nd().getAssetTag());
+                        } else {
+                            eventForwarder.sendAssetFailed(e.getMessage(), nd.nd().getAssetTag());
+                        }
                     }
                 }
             } catch (InterruptedException e) {
