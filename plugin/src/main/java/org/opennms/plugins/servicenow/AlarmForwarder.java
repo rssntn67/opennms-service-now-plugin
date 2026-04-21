@@ -2,8 +2,6 @@ package org.opennms.plugins.servicenow;
 
 import org.opennms.integration.api.v1.alarms.AlarmLifecycleListener;
 import org.opennms.integration.api.v1.model.Alarm;
-import org.opennms.plugins.servicenow.client.ApiClientProvider;
-import org.opennms.plugins.servicenow.connection.ConnectionManager;
 import org.opennms.plugins.servicenow.model.Alert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,49 +17,14 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     public static final String ALARM_UEI_INTERFACE_DOWN = "uei.opennms.org/nodes/interfaceDown";
     public static final String ALARM_UEI_SERVICE_DOWN = "uei.opennms.org/nodes/nodeLostService";
 
-    private static final int DEFAULT_RETRY = 3;
-    private static final long DEFAULT_RETRY_DELAY_MS = 250L;
-
     private final String filter;
-    private final AtomicBoolean starting = new AtomicBoolean(true);
     private final AlarmSender alarmSender;
+    private final AtomicBoolean starting = new AtomicBoolean(true);
 
-    public AlarmForwarder(ConnectionManager connectionManager,
-                          ApiClientProvider apiClientProvider,
-                          String filter,
-                          EdgeService edgeservice,
-                          PluginEventForwarder eventForwarder,
-                          String retry,
-                          String retryDelay) {
-        Objects.requireNonNull(connectionManager);
-        Objects.requireNonNull(apiClientProvider);
+    public AlarmForwarder(String filter, AlarmSender alarmSender) {
         this.filter = Objects.requireNonNull(filter);
-        Objects.requireNonNull(edgeservice);
-        Objects.requireNonNull(eventForwarder);
-        int parsedRetry;
-        try {
-            parsedRetry = Integer.parseInt(retry);
-        } catch (NumberFormatException e) {
-            LOG.warn("Invalid retry value '{}', using default {}", retry, DEFAULT_RETRY);
-            parsedRetry = DEFAULT_RETRY;
-        }
-        long parsedDelay;
-        try {
-            parsedDelay = Long.parseLong(retryDelay);
-        } catch (NumberFormatException e) {
-            LOG.warn("Invalid retryDelay value '{}', using default {}", retryDelay, DEFAULT_RETRY_DELAY_MS);
-            parsedDelay = DEFAULT_RETRY_DELAY_MS;
-        }
-        this.alarmSender = new AlarmSender(connectionManager, apiClientProvider, edgeservice, eventForwarder, parsedRetry, parsedDelay);
-        LOG.info("init: filter: {}, retry: {}, retryDelay: {}", this.filter, parsedRetry, parsedDelay);
-    }
-
-    public void start() {
-        alarmSender.start();
-    }
-
-    public void stop() {
-        alarmSender.stop();
+        this.alarmSender = Objects.requireNonNull(alarmSender);
+        LOG.info("init: filter: {}", this.filter);
     }
 
     @Override
