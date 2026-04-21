@@ -118,7 +118,6 @@
         <argument value="${filter.networkdevice.firewall}"/>
         <argument value="${filter.networkdevice.modem.lte}"/>
         <argument value="${filter.networkdevice.modem.xdsl}"/>
-        <argument ref="nodeDao"/>
         <argument ref="edgeService"/>
         <argument ref="requisitionRepository"/>
         <argument ref="pluginEventForwarder"/>

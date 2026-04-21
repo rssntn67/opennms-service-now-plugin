@@ -3,7 +3,6 @@ package org.opennms.plugins.servicenow;
 import org.opennms.integration.api.v1.config.requisition.Requisition;
 import org.opennms.integration.api.v1.config.requisition.RequisitionInterface;
 import org.opennms.integration.api.v1.config.requisition.RequisitionNode;
-import org.opennms.integration.api.v1.dao.NodeDao;
 import org.opennms.integration.api.v1.model.Node;
 import org.opennms.integration.api.v1.requisition.RequisitionRepository;
 import org.opennms.plugins.servicenow.model.AccessPoint;
@@ -31,7 +30,6 @@ public class AssetForwarder implements Runnable {
     private final String filterModemLte;
     private final String filterModemXdsl;
 
-    private final NodeDao nodeDao;
     private final EdgeService edgeService;
     private final PluginEventForwarder eventForwarder;
     private final RequisitionRepository requisitionRepository;
@@ -44,7 +42,6 @@ public class AssetForwarder implements Runnable {
                           String filterFirewall,
                           String filterModemLte,
                           String filterModemXdsl,
-                          NodeDao nodeDao,
                           EdgeService edgeservice,
                           RequisitionRepository requisitionRepository,
                           PluginEventForwarder eventForwarder,
@@ -56,7 +53,6 @@ public class AssetForwarder implements Runnable {
         this.filterFirewall = Objects.requireNonNull(filterFirewall);
         this.filterModemLte = Objects.requireNonNull(filterModemLte);
         this.filterModemXdsl = Objects.requireNonNull(filterModemXdsl);
-        this.nodeDao = Objects.requireNonNull(nodeDao);
         this.edgeService = Objects.requireNonNull(edgeservice);
         this.eventForwarder = Objects.requireNonNull(eventForwarder);
         this.requisitionRepository = Objects.requireNonNull(requisitionRepository);
@@ -252,8 +248,8 @@ public class AssetForwarder implements Runnable {
     @Override
     public void run() {
         LOG.info("run: calling");
-        List<Node> nodes = nodeDao.getNodes().stream().filter(n -> n.getCategories().contains(filter)).toList();
-        LOG.info("run: found: {} nodes", nodes.size());
+        List<Node> nodes = edgeService.getNodes().stream().filter(n -> n.getCategories().contains(filter)).toList();
+        LOG.info("run: found: {} asset nodes", nodes.size());
         Set<String> currentAssetTags = nodes.stream().map(AssetForwarder::getAssetTag).collect(Collectors.toSet());
         currentAssetTags.forEach(h -> LOG.debug("run: found: {} hash", h));
         Set<String> cachedDeletedAssetTags = assetSender.getCachedAssetTags().stream()
