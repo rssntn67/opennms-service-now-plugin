@@ -95,12 +95,11 @@ public class AssetForwarder implements Runnable {
         return assetSender.disableAsset(assetTag);
     }
 
-    public void sendAsset(Node node) {
+    public void sendAsset(Node node, Requisition req) {
         LOG.info("sendAsset: processing node with id:{} fs:{}, fid:{}",
                 node.getId(),
                 node.getForeignSource(),
                 node.getForeignId());
-        Requisition req = requisitionRepository.getDeployedRequisition(node.getForeignSource());
         if (req == null) {
             LOG.error("sendAsset: no requisition  for nodeId: {}, fs: {}", node.getId(), node.getForeignSource());
             eventForwarder.sendAssetFailed(node.getId(), "No requisition found");
@@ -256,6 +255,11 @@ public class AssetForwarder implements Runnable {
                 .filter(k -> !currentAssetTags.contains(k))
                 .collect(Collectors.toSet());
         cachedDeletedAssetTags.forEach(assetSender::disableAsset);
-        nodes.forEach(this::sendAsset);
+        final Map<String, Requisition> requisitionMap = nodes.stream()
+                .map(Node::getForeignSource)
+                .distinct()
+                .collect(Collectors.toMap(fs -> fs, requisitionRepository::getDeployedRequisition));
+        LOG.info("run: found: {} asset nodes", requisitionMap.size());
+        nodes.forEach(n -> sendAsset(n, requisitionMap.get(n.getForeignSource())));
     }
 }
