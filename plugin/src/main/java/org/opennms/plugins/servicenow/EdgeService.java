@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -114,6 +115,7 @@ public class EdgeService implements Runnable {
     private final String gatewayKey;
     private final String excludedForeignSource;
 
+    private List<Node> nodes = new ArrayList<>();
     private final Integer maxIteration;
 
     public void init() {
@@ -205,10 +207,15 @@ public class EdgeService implements Runnable {
         return map;
     }
 
+    public List<Node> getNodes() {
+        return this.nodes;
+    }
+
     @Override
     public void run() {
         LOG.info("run: calling");
-        List<Node> nodes = nodeDao.getNodes();
+        this.nodes.clear();
+        this.nodes = nodeDao.getNodes();
         LOG.info("run: nodes size: {}", nodes.size());
         this.gatewayToChildMap.clear();
         this.gatewayToChildMap.putAll(populateGatewayMap(nodes));
