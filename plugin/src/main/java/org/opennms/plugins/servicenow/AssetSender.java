@@ -107,7 +107,13 @@ public class AssetSender {
     }
 
     public boolean isUnchanged(String assetTag, int hash) {
-        return String.valueOf(hash).equals(hashCache.get(assetTag));
+        String cachedHash = hashCache.get(assetTag);
+        String newHash = String.valueOf(hash);
+        if (newHash.equals(cachedHash)) {
+            return true;
+        }
+        LOG.info("isUnchanged: asset {} changed: cached={}, new={}", assetTag, cachedHash, newHash);
+        return false;
     }
 
     public Set<String> getCachedAssetTags() {

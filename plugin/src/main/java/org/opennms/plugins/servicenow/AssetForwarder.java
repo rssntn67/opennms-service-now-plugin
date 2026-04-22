@@ -69,7 +69,7 @@ public class AssetForwarder implements Runnable {
     }
 
     public static String getAssetTag(String fs, String fid) {
-        return fs + "::" + fid;
+        return fs + "-" + fid;
     }
 
     public void clearCache() {
@@ -159,6 +159,9 @@ public class AssetForwarder implements Runnable {
         if (node.getAssetRecord().getDescription() == null
                 || node.getAssetRecord().getDescription().isBlank()
                 || node.getAssetRecord().getDescription().isEmpty()) {
+            if (node.getAssetRecord().getGeolocation() == null) {
+                return "";
+            }
             return node.getAssetRecord().getGeolocation().getAddress1() + ", " + node.getAssetRecord().getGeolocation().getCity();
         }
         return node.getAssetRecord().getDescription();
@@ -177,8 +180,10 @@ public class AssetForwarder implements Runnable {
         networkDevice.setModelId("Apparati di Rete");
         networkDevice.setInstallStatus(InstallStatus.ATTIVO);
         networkDevice.setLocation(getLocation(node));
-        networkDevice.setLatitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLatitude()));
-        networkDevice.setLongitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLongitude()));
+        if (node.getAssetRecord().getGeolocation() != null) {
+            networkDevice.setLatitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLatitude()));
+            networkDevice.setLongitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLongitude()));
+        }
         networkDevice.setTipoApparato(tipoApparato);
         return networkDevice;
     }
@@ -200,8 +205,10 @@ public class AssetForwarder implements Runnable {
         accessPoint.setModelId("Access Point");
         accessPoint.setInstallStatus(InstallStatus.ATTIVO);
         accessPoint.setLocation(getLocation(node));
-        accessPoint.setLatitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLatitude()));
-        accessPoint.setLongitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLongitude()));
+        if (node.getAssetRecord().getGeolocation() != null) {
+            accessPoint.setLatitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLatitude()));
+            accessPoint.setLongitudine(String.valueOf(node.getAssetRecord().getGeolocation().getLongitude()));
+        }
         accessPoint.setTipoCollegamento(getTipoCollegamento(node.getLocation(), locationAccessPointSctt));
         accessPoint.setSerialNumber(node.getAssetRecord().getAssetNumber());
         return accessPoint;
@@ -270,7 +277,12 @@ public class AssetForwarder implements Runnable {
             }
             String ipaddress = reqInterfaceMap.get(node.getForeignSource()).get(node.getForeignId());
             LOG.info("run: ip address {} found for foreign id : {}-{}",ipaddress, node.getForeignSource(), node.getForeignId());
-            sendAsset(node, ipaddress);
+            try {
+                sendAsset(node, ipaddress);
+            } catch (Exception e) {
+                LOG.error("run: unexpected error processing node {}-{}", node.getForeignSource(), node.getForeignId(), e);
+                eventForwarder.sendAssetFailed(node.getId(), e.getMessage());
+            }
         }
     }
 }
