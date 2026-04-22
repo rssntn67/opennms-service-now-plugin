@@ -13,6 +13,7 @@ import org.opennms.plugins.servicenow.model.TipoCollegamento;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -95,35 +96,7 @@ public class AssetForwarder implements Runnable {
         return assetSender.disableAsset(assetTag);
     }
 
-    public void sendAsset(Node node, Requisition req) {
-        LOG.info("sendAsset: processing node with id:{} fs:{}, fid:{}",
-                node.getId(),
-                node.getForeignSource(),
-                node.getForeignId());
-        if (req == null) {
-            LOG.error("sendAsset: no requisition  for nodeId: {}, fs: {}", node.getId(), node.getForeignSource());
-            eventForwarder.sendAssetFailed(node.getId(), "No requisition found");
-            return;
-        }
-        RequisitionNode rn = null;
-        for (RequisitionNode currRn : req.getNodes()) {
-            if (currRn.getForeignId().equals(node.getForeignId())) {
-                rn = currRn;
-                break;
-            }
-        }
-        if (rn == null) {
-            LOG.error("sendAsset: no requisition node for nodeId: {}", node.getId());
-            eventForwarder.sendAssetFailed(node.getId(), "No requisition node found");
-            return;
-        }
-        if (rn.getInterfaces().isEmpty()) {
-            LOG.error("sendAsset: no requisition interface for nodeId: {}", node.getId());
-            eventForwarder.sendAssetFailed(node.getId(), "No ip address found");
-            return;
-        }
-        RequisitionInterface ri = rn.getInterfaces().get(0);
-        String ipaddress = ri.getIpAddress().getHostAddress();
+    public void sendAsset(Node node, String ipaddress) {
 
         if (node.getCategories().contains(filterAccessPoint)) {
             AccessPoint ap = toAccessPoint(node, edgeService.getParent(node), ipaddress, locationAccessPointSctt);
@@ -255,11 +228,49 @@ public class AssetForwarder implements Runnable {
                 .filter(k -> !currentAssetTags.contains(k))
                 .collect(Collectors.toSet());
         cachedDeletedAssetTags.forEach(assetSender::disableAsset);
-        final Map<String, Requisition> requisitionMap = nodes.stream()
-                .map(Node::getForeignSource)
-                .distinct()
-                .collect(Collectors.toMap(fs -> fs, requisitionRepository::getDeployedRequisition));
-        LOG.info("run: found: {} asset nodes", requisitionMap.size());
-        nodes.forEach(n -> sendAsset(n, requisitionMap.get(n.getForeignSource())));
+        final Map<String, Map<String,String>> reqInterfaceMap = new HashMap<>();
+        Set<String> foreignSources = nodes.stream()
+                .map(Node::getForeignSource).collect(Collectors.toSet());
+
+        LOG.info("run: found: {} foreign sources", foreignSources.size());
+        for (String fs: foreignSources) {
+            Requisition req = requisitionRepository.getDeployedRequisition(fs);
+            if (req == null) {
+                LOG.error("run: no deployed requisition for fs: {}", fs);
+                continue;
+            }
+            Map<String,String> fidIpMap = new HashMap<>();
+            for (RequisitionNode rn : req.getNodes()) {
+                if (rn.getInterfaces().isEmpty()) {
+                    LOG.error("run: no requisition interface for fs:{}, fid:{}", fs, rn.getForeignId());
+                    continue;
+                }
+                RequisitionInterface ri = rn.getInterfaces().get(0);
+                String ipaddress = ri.getIpAddress().getHostAddress();
+                LOG.info("run: found ip: {} for: fs: {}, fid: {} ", ipaddress, fs, rn.getForeignId());
+                fidIpMap.put(rn.getForeignId(), ipaddress);
+            }
+            reqInterfaceMap.put(fs, fidIpMap);
+        }
+
+        for (Node node: nodes) {
+            LOG.info("run: processing node with id:{} fs:{}, fid:{}",
+                    node.getId(),
+                    node.getForeignSource(),
+                    node.getForeignId());
+            if (!reqInterfaceMap.containsKey(node.getForeignSource())) {
+                LOG.error("run: no deployed foreign source found: {}-{}", node.getForeignSource(),node.getForeignId());
+                eventForwarder.sendAssetFailed(node.getId(), "no deployed foreign source found: " + node.getForeignSource());
+                continue;
+            }
+            if (!reqInterfaceMap.get(node.getForeignSource()).containsKey(node.getForeignId())) {
+                LOG.error("run: no deployed foreign id found: {}-{}", node.getForeignSource(), node.getForeignId());
+                eventForwarder.sendAssetFailed(node.getId(), "no deployed foreign id found: " + node.getForeignId());
+                continue;
+            }
+            String ipaddress = reqInterfaceMap.get(node.getForeignSource()).get(node.getForeignId());
+            LOG.info("run: ip address {} found for foreign id : {}-{}",ipaddress, node.getForeignSource(), node.getForeignId());
+            sendAsset(node, ipaddress);
+        }
     }
 }
