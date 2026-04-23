@@ -33,12 +33,9 @@ public class GetAssetCacheCommand implements Action {
         forwarder.getNetworkDeviceCache().forEach((assetTag, json) -> {
             var nd = forwarder.toNetworkDevice(json);
             if (nd == null) return;
-            String[] parts = assetTag.split("::", 2);
-            String fs = parts.length > 0 ? parts[0] : "";
-            String fid = parts.length > 1 ? parts[1] : "";
             final var row = table.addRow();
-            row.addContent(fs);
-            row.addContent(fid);
+            row.addContent(AssetForwarder.getForeignSourceFromAssetTag(assetTag));
+            row.addContent(AssetForwarder.getForeignIdFromAssetTag(assetTag));
             row.addContent(nd.getName());
             row.addContent("NetworkDevice");
             row.addContent(nd.getTipoApparato() != null ? nd.getTipoApparato().name() : "");
@@ -48,12 +45,9 @@ public class GetAssetCacheCommand implements Action {
         forwarder.getAccessPointCache().forEach((assetTag, json) -> {
             var ap = forwarder.toAccessPoint(json);
             if (ap == null) return;
-            String[] parts = assetTag.split("::", 2);
-            String fs = parts.length > 0 ? parts[0] : "";
-            String fid = parts.length > 1 ? parts[1] : "";
             final var row = table.addRow();
-            row.addContent(fs);
-            row.addContent(fid);
+            row.addContent(AssetForwarder.getForeignSourceFromAssetTag(assetTag));
+            row.addContent(AssetForwarder.getForeignIdFromAssetTag(assetTag));
             row.addContent(ap.getName());
             row.addContent("AccessPoint");
             row.addContent(ap.getTipoCollegamento() != null ? ap.getTipoCollegamento().name() : "");

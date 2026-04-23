@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 public class AssetForwarder implements Runnable {
     private static final Logger LOG = LoggerFactory.getLogger(AssetForwarder.class);
 
+    private static final String ASSET_TAG_SPLIT="-";
     private final String filter;
     private final String filterAccessPoint;
     private final String locationAccessPointSctt;
@@ -69,8 +70,20 @@ public class AssetForwarder implements Runnable {
     }
 
     public static String getAssetTag(String fs, String fid) {
-        return fs + "-" + fid;
+        return fs + ASSET_TAG_SPLIT + fid;
     }
+
+    public static String getForeignSourceFromAssetTag(String assetTag) {
+        String[] parts = assetTag.split(ASSET_TAG_SPLIT, 2);
+        String fid = parts.length > 1 ? parts[1] : "";
+        return parts.length > 0 ? parts[0] : "";
+    }
+
+    public static String getForeignIdFromAssetTag(String assetTag) {
+        String[] parts = assetTag.split(ASSET_TAG_SPLIT, 2);
+        return parts.length > 1 ? parts[1] : "";
+    }
+
 
     public void clearCache() {
         assetSender.clearCache();
