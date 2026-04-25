@@ -55,38 +55,38 @@ public class EdgeService implements Runnable {
 
         @Override
         public void visitSource(Node node) {
-            LOG.info("->{}:visitSourceNode {}",id, node);
+            LOG.debug("->{}:visitSourceNode {}",id, node);
             source = nodeDao.getNodeByForeignSourceAndForeignId(node.getForeignSource(), node.getForeignId()).getLabel();
         }
 
         @Override
         public void visitTarget(Node node) {
-            LOG.info("->{}:visitTarget:Node {}",id, node);
+            LOG.debug("->{}:visitTarget:Node {}",id, node);
             target = nodeDao.getNodeByForeignSourceAndForeignId(node.getForeignSource(), node.getForeignId()).getLabel();
         }
 
         @Override
         public void visitSource(TopologyPort port) {
-            LOG.info("->{}:visitSource:TopologyPort {}",id, port);
+            LOG.debug("->{}:visitSource:TopologyPort {}",id, port);
             source = nodeDao.getNodeByForeignSourceAndForeignId(port.getNodeCriteria().getForeignSource(),port.getNodeCriteria().getForeignId()).getLabel();
         }
 
 
         @Override
         public void visitTarget(TopologyPort port) {
-            LOG.info("->{}:visitTarget:TopologyPort {}",id, port);
+            LOG.debug("->{}:visitTarget:TopologyPort {}",id, port);
             target = nodeDao.getNodeByForeignSourceAndForeignId(port.getNodeCriteria().getForeignSource(),port.getNodeCriteria().getForeignId()).getLabel();
         }
 
         @Override
         public void visitTarget(TopologySegment segment) {
-            LOG.info("->{}:visitTarget:TopologySegment:Criteria-> {}",id, segment.getSegmentCriteria());
+            LOG.debug("->{}:visitTarget:TopologySegment:Criteria-> {}",id, segment.getSegmentCriteria());
             try {
                 Pair<Integer, Integer> pair = EdgeService.getFromId(id);
                 source = nodeDao.getNodeById(pair.getFirst()).getLabel();
                 target = nodeDao.getNodeById(pair.getSecond()).getLabel();
             } catch (Exception e) {
-                LOG.info("->{}:visitTarget:TopologySegment: {}", id, e.getMessage());
+                LOG.debug("->{}:visitTarget:TopologySegment: {}", id, e.getMessage());
             }
 
         }
@@ -120,10 +120,10 @@ public class EdgeService implements Runnable {
 
     public void init() {
         parentByGatewayKeyMap = new ConcurrentHashMap<>();
-        LOG.info("init: parentMap initialized: {}", this.parentByGatewayKeyMap != null);
-        LOG.info("init: parentMap size: {}", this.parentByGatewayKeyMap.size());
-        LOG.info("init: parentMap class: {}", this.parentByGatewayKeyMap.getClass().getName());
-        LOG.info("init: this reference: {}", this);
+        LOG.debug("init: parentMap initialized: {}", this.parentByGatewayKeyMap != null);
+        LOG.debug("init: parentMap size: {}", this.parentByGatewayKeyMap.size());
+        LOG.debug("init: parentMap class: {}", this.parentByGatewayKeyMap.getClass().getName());
+        LOG.debug("init: this reference: {}", this);
     }
 
 
@@ -167,20 +167,20 @@ public class EdgeService implements Runnable {
     private String getParentByParentKey(Node node) {
         for (MetaData m : node.getMetaData()) {
             if (m.getContext().equals(this.context) && m.getKey().equals(this.parentKey)) {
-                LOG.info("getParentByParentKey: found parent: {}, for node: {}", m.getValue(), node.getLabel() );
+                LOG.debug("getParentByParentKey: found parent: {}, for node: {}", m.getValue(), node.getLabel() );
                 return m.getValue();
             }
         }
-        LOG.info("getParentByParentKey: no parent found: for node: {}", node.getLabel() );
+        LOG.debug("getParentByParentKey: no parent found: for node: {}", node.getLabel() );
         return null;
     }
 
     private String getParentByGatewayKey(Node node) {
         if (this.parentByGatewayKeyMap.containsKey(node.getLabel())) {
-            LOG.info("getParentByGatewayKey: found parent: {}, for node: {}", this.parentByGatewayKeyMap.get(node.getLabel()), node.getLabel() );
+            LOG.debug("getParentByGatewayKey: found parent: {}, for node: {}", this.parentByGatewayKeyMap.get(node.getLabel()), node.getLabel() );
             return this.parentByGatewayKeyMap.get(node.getLabel());
         }
-        LOG.info("getParentByGatewayKey: no parent found: for node: {}", node.getLabel() );
+        LOG.debug("getParentByGatewayKey: no parent found: for node: {}", node.getLabel() );
         return "NoParentNodeFound";
     }
 
@@ -219,24 +219,24 @@ public class EdgeService implements Runnable {
         LOG.info("run: nodes size: {}", nodes.size());
         this.gatewayToChildMap.clear();
         this.gatewayToChildMap.putAll(populateGatewayMap(nodes));
-        LOG.info("run: gatewayToChildMap size: {}", gatewayToChildMap.size());
+        LOG.debug("run: gatewayToChildMap size: {}", gatewayToChildMap.size());
 
         locations.clear();
         locations.addAll(populateLocations(nodes));
-        LOG.info("run: locations size: {}", locations.size());
+        LOG.debug("run: locations size: {}", locations.size());
 
         gatewayToGatewayLabelMap.clear();
         gatewayToGatewayLabelMap.putAll(populateGatewayToGatewayLabelMap(this.locations, new HashSet<>(gatewayToChildMap.keySet())));
-        LOG.info("run: gatewayToGatewayLabelMap: {}", gatewayToGatewayLabelMap.size());
+        LOG.debug("run: gatewayToGatewayLabelMap: {}", gatewayToGatewayLabelMap.size());
 
         Map<String, Set<String>> gatewayMap = populateGatewayLabelToSetLabelMap();
-        LOG.info("run: gatewayMap size: {}", gatewayMap.size());
+        LOG.debug("run: gatewayMap size: {}", gatewayMap.size());
 
         //LLDP
         Set<TopologyEdge> lldpEdges = edgeDao.getEdges(TopologyProtocol.LLDP);
-        LOG.info("run: lldpEdges size: {}", lldpEdges.size());
+        LOG.debug("run: lldpEdges size: {}", lldpEdges.size());
         Map<String, Set<String>> lldpEdgeMap = populateEdgeMap(lldpEdges);
-        LOG.info("run: lldpEdgeMap size: {}", lldpEdgeMap.size());
+        LOG.debug("run: lldpEdgeMap size: {}", lldpEdgeMap.size());
         edgeMap.remove(TopologyProtocol.LLDP);
         edgeMap.put(TopologyProtocol.LLDP, lldpEdgeMap);
         Map<String, String> lldpParentMap =
@@ -244,13 +244,13 @@ public class EdgeService implements Runnable {
                     lldpEdgeMap,
                     gatewayMap
                 );
-        LOG.info("run: found lldp parent map of size: {}", lldpParentMap.size());
+        LOG.debug("run: found lldp parent map of size: {}", lldpParentMap.size());
 
         //CDP
         Set<TopologyEdge> cdpEdges = edgeDao.getEdges(TopologyProtocol.CDP);
-        LOG.info("run: cdpEdges size: {}", cdpEdges.size());
+        LOG.debug("run: cdpEdges size: {}", cdpEdges.size());
         Map<String, Set<String>> cdpEdgeMap = populateEdgeMap(cdpEdges);
-        LOG.info("run:cdpEdgeMap size: {}", lldpEdgeMap.size());
+        LOG.debug("run:cdpEdgeMap size: {}", lldpEdgeMap.size());
         edgeMap.remove(TopologyProtocol.CDP);
         edgeMap.put(TopologyProtocol.CDP, cdpEdgeMap);
         Map<String, String> cdpParentMap =
@@ -258,31 +258,31 @@ public class EdgeService implements Runnable {
                         cdpEdgeMap,
                         gatewayMap
                 );
-        LOG.info("run: found cdp parent map of size: {}", cdpParentMap.size());
+        LOG.debug("run: found cdp parent map of size: {}", cdpParentMap.size());
 
         //BRIDGE
         Set<TopologyEdge> bridgeEdges = edgeDao.getEdges(TopologyProtocol.BRIDGE);
-        LOG.info("run: bridgeEdges size: {}", lldpEdges.size());
+        LOG.debug("run: bridgeEdges size: {}", lldpEdges.size());
         Map<String, Set<String>> bridgeEdgeMap = populateEdgeMap(bridgeEdges);
-        LOG.info("run: bridgeEdgeMap size: {}", bridgeEdgeMap.size());
+        LOG.debug("run: bridgeEdgeMap size: {}", bridgeEdgeMap.size());
         edgeMap.remove(TopologyProtocol.BRIDGE);
-        edgeMap.put(TopologyProtocol.BRIDGE, lldpEdgeMap);
+        edgeMap.put(TopologyProtocol.BRIDGE, bridgeEdgeMap);
         Map<String, String> bridgeParentMap =
                 runDiscovery(
                         bridgeEdgeMap,
                         gatewayMap
                 );
-        LOG.info("run: found bridge parent map of size: {}", bridgeParentMap.size());
+        LOG.debug("run: found bridge parent map of size: {}", bridgeParentMap.size());
 
         this.parentByGatewayKeyMap.clear();
         lldpParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
-        LOG.info("run: added lldp: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
+        LOG.debug("run: added lldp: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
         cdpParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
-        LOG.info("run: added cdp: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
+        LOG.debug("run: added cdp: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
         bridgeParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
-        LOG.info("run: added bridge: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
+        LOG.debug("run: added bridge: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
         gatewayMap.forEach((parent, set) -> set.forEach(label -> this.parentByGatewayKeyMap.putIfAbsent(label,parent)));
-        LOG.info("run: added gateways: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
+        LOG.debug("run: added gateways: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
     }
 
     public Set<String> populateLocations(List<Node> nodes) {

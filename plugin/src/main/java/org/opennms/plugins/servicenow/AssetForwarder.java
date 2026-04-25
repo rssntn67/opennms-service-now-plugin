@@ -75,7 +75,6 @@ public class AssetForwarder implements Runnable {
 
     public static String getForeignSourceFromAssetTag(String assetTag) {
         String[] parts = assetTag.split(ASSET_TAG_SPLIT, 2);
-        String fid = parts.length > 1 ? parts[1] : "";
         return parts.length > 0 ? parts[0] : "";
     }
 
@@ -114,7 +113,7 @@ public class AssetForwarder implements Runnable {
         if (node.getCategories().contains(filterAccessPoint)) {
             AccessPoint ap = toAccessPoint(node, edgeService.getParent(node), ipaddress, locationAccessPointSctt);
             if (assetSender.isUnchanged(ap.getAssetTag(), ap.hashCode())) {
-                LOG.info("sendAsset: AccessPoint skipping unchanged asset: {}", ap.getAssetTag());
+                LOG.debug("sendAsset: AccessPoint skipping unchanged asset: {}", ap.getAssetTag());
                 return;
             }
             sendAccessPoint(node, ap);
@@ -123,7 +122,7 @@ public class AssetForwarder implements Runnable {
         if (node.getCategories().contains(filterSwitch)) {
             NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.SWITCH);
             if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
-                LOG.info("sendAsset: NetworkDevice Switch skipping unchanged asset: {}", nd.getAssetTag());
+                LOG.debug("sendAsset: NetworkDevice Switch skipping unchanged asset: {}", nd.getAssetTag());
                 return;
             }
             sendNetworkDevice(node, nd);
@@ -132,7 +131,7 @@ public class AssetForwarder implements Runnable {
         if (node.getCategories().contains(filterFirewall)) {
             NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.FIREWALL);
             if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
-                LOG.info("sendAsset: NetworkDevice Firewall skipping unchanged asset: {}", nd.getAssetTag());
+                LOG.debug("sendAsset: NetworkDevice Firewall skipping unchanged asset: {}", nd.getAssetTag());
                 return;
             }
             sendNetworkDevice(node, nd);
@@ -141,7 +140,7 @@ public class AssetForwarder implements Runnable {
         if (node.getCategories().contains(filterModemLte)) {
             NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_LTE);
             if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
-                LOG.info("sendAsset: NetworkDevice Modem LTE skipping unchanged asset: {}", nd.getAssetTag());
+                LOG.debug("sendAsset: NetworkDevice Modem LTE skipping unchanged asset: {}", nd.getAssetTag());
                 return;
             }
             sendNetworkDevice(node, nd);
@@ -150,13 +149,13 @@ public class AssetForwarder implements Runnable {
         if (node.getCategories().contains(filterModemXdsl)) {
             NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_XDSL);
             if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
-                LOG.info("sendAsset: NetworkDevice Model XDSL skipping unchanged asset: {}", nd.getAssetTag());
+                LOG.debug("sendAsset: NetworkDevice Model XDSL skipping unchanged asset: {}", nd.getAssetTag());
                 return;
             }
             sendNetworkDevice(node, nd);
             return;
         }
-        LOG.error("sendAsset: no match category for node {}", node.getId());
+        LOG.info("sendAsset: no match category for node {}", node.getId());
         eventForwarder.sendAssetFailed(node.getId(), "No matching category found");
     }
 
@@ -256,40 +255,40 @@ public class AssetForwarder implements Runnable {
         for (String fs: foreignSources) {
             Requisition req = requisitionRepository.getDeployedRequisition(fs);
             if (req == null) {
-                LOG.error("run: no deployed requisition for fs: {}", fs);
+                LOG.warn("run: no deployed requisition for fs: {}", fs);
                 continue;
             }
             Map<String,String> fidIpMap = new HashMap<>();
             for (RequisitionNode rn : req.getNodes()) {
                 if (rn.getInterfaces().isEmpty()) {
-                    LOG.error("run: no requisition interface for fs:{}, fid:{}", fs, rn.getForeignId());
+                    LOG.debug("run: no requisition interface for fs:{}, fid:{}", fs, rn.getForeignId());
                     continue;
                 }
                 RequisitionInterface ri = rn.getInterfaces().get(0);
                 String ipaddress = ri.getIpAddress().getHostAddress();
-                LOG.info("run: found ip: {} for: fs: {}, fid: {} ", ipaddress, fs, rn.getForeignId());
+                LOG.debug("run: found ip: {} for: fs: {}, fid: {} ", ipaddress, fs, rn.getForeignId());
                 fidIpMap.put(rn.getForeignId(), ipaddress);
             }
             reqInterfaceMap.put(fs, fidIpMap);
         }
 
         for (Node node: nodes) {
-            LOG.info("run: processing node with id:{} fs:{}, fid:{}",
+            LOG.debug("run: processing node with id:{} fs:{}, fid:{}",
                     node.getId(),
                     node.getForeignSource(),
                     node.getForeignId());
             if (!reqInterfaceMap.containsKey(node.getForeignSource())) {
-                LOG.error("run: no deployed foreign source found: {}-{}", node.getForeignSource(),node.getForeignId());
+                LOG.debug("run: no deployed foreign source found: {}-{}", node.getForeignSource(),node.getForeignId());
                 eventForwarder.sendAssetFailed(node.getId(), "no deployed foreign source found: " + node.getForeignSource());
                 continue;
             }
             if (!reqInterfaceMap.get(node.getForeignSource()).containsKey(node.getForeignId())) {
-                LOG.error("run: no deployed foreign id found: {}-{}", node.getForeignSource(), node.getForeignId());
+                LOG.debug("run: no deployed foreign id found: {}-{}", node.getForeignSource(), node.getForeignId());
                 eventForwarder.sendAssetFailed(node.getId(), "no deployed foreign id found: " + node.getForeignId());
                 continue;
             }
             String ipaddress = reqInterfaceMap.get(node.getForeignSource()).get(node.getForeignId());
-            LOG.info("run: ip address {} found for foreign id : {}-{}",ipaddress, node.getForeignSource(), node.getForeignId());
+            LOG.debug("run: ip address {} found for foreign id : {}-{}",ipaddress, node.getForeignSource(), node.getForeignId());
             try {
                 sendAsset(node, ipaddress);
             } catch (Exception e) {

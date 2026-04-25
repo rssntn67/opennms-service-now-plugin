@@ -54,17 +54,15 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
     @Override
     public void handleAlarmSnapshot(List<Alarm> alarms) {
-        LOG.debug("handleAlarmSnapshot: got {} alarms", alarms.size());
         if (!starting.get())
             return;
-        LOG.info("handleAlarmSnapshot: starting adding {} alarms to forward", alarms.size());
+        LOG.debug("handleAlarmSnapshot: starting, got: {} alarms", alarms.size());
         alarms.stream().filter(this::isToForward).forEach(a-> alarmSender.enqueue(a, a.getNode(), edgeService.getParent(a.getNode())));
         starting.set(false);
     }
 
     @Override
     public void handleDeletedAlarm(int alarmId, String reductionKey) {
-        LOG.debug("handleDeletedAlarm: alarm:{} with reductionKey:{}", alarmId, reductionKey);
     }
 
     public static Alert toAlert(Alarm alarm, String parentNodeLabel) {
@@ -75,7 +73,7 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         alert.setType("opennms network alarm");
         alert.setSeverity(toSeverity(alarm));
         alert.setMaintenance(false);
-        alert.setDescription(alarm.getDescription().replaceAll("<p>","").replaceAll("</p>", "\n"));
+        alert.setDescription(alarm.getDescription().replace("<p>","").replace("</p>", "\n"));
         alert.setMetricName(alarm.getReductionKey());
         alert.setKey(alarm.getLogMessage());
         alert.setResource(alarm.getNode().getAssetRecord().getDescription());

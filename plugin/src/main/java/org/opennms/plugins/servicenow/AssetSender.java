@@ -112,7 +112,7 @@ public class AssetSender {
         if (newHash.equals(cachedHash)) {
             return true;
         }
-        LOG.info("isUnchanged: asset {} changed: cached={}, new={}", assetTag, cachedHash, newHash);
+        LOG.debug("isUnchanged: asset {} changed: cached={}, new={}", assetTag, cachedHash, newHash);
         return false;
     }
 
@@ -164,11 +164,11 @@ public class AssetSender {
         if (networkDeviceMap.containsKey(assetTag)) {
             NetworkDevice nd = toNetworkDevice(networkDeviceMap.get(assetTag));
             if (nd == null) {
-                LOG.error("disableAsset: failed to deserialize NetworkDevice for {}", assetTag);
+                LOG.debug("disableAsset: failed to deserialize NetworkDevice for {}", assetTag);
                 return false;
             }
             if (nd.getInstallStatus().equals(InstallStatus.DISATTIVO)) {
-                LOG.info("disableAsset: Already Disabled NetworkDevice for {}", assetTag);
+                LOG.debug("disableAsset: Already Disabled NetworkDevice for {}", assetTag);
                 return true;
             }
             nd.setInstallStatus(InstallStatus.DISATTIVO);
@@ -178,18 +178,18 @@ public class AssetSender {
         if (accessPointMap.containsKey(assetTag)) {
             AccessPoint ap = toAccessPoint(accessPointMap.get(assetTag));
             if (ap == null) {
-                LOG.error("disableAsset: failed to deserialize AccessPoint for {}", assetTag);
+                LOG.debug("disableAsset: failed to deserialize AccessPoint for {}", assetTag);
                 return false;
             }
             if (ap.getInstallStatus().equals(InstallStatus.DISATTIVO)) {
-                LOG.info("disableAsset: Already Disabled AccessPoint for {}", assetTag);
+                LOG.debug("disableAsset: Already Disabled AccessPoint for {}", assetTag);
                 return true;
             }
             ap.setInstallStatus(InstallStatus.DISATTIVO);
             enqueue(null, ap);
             return true;
         }
-        LOG.warn("disableAsset: asset not found in cache: {}", assetTag);
+        LOG.debug("disableAsset: asset not found in cache: {}", assetTag);
         return false;
     }
 
@@ -349,7 +349,7 @@ public class AssetSender {
             LOG.warn("sendAccessPoint: skipping AccessPoint {}, too many retry {}", accessPoint.getAssetTag(), retry);
         }
         retry++;
-        LOG.info("sendAccessPoint: sending {}", accessPoint);
+        LOG.debug("sendAccessPoint: sending {}", accessPoint);
         try {
             apiClientProvider.send(
                     accessPoint,
@@ -389,7 +389,7 @@ public class AssetSender {
             LOG.warn("sendNetworkDevice: skipping NetworkDevice {}, too many retry {}", networkDevice.getAssetTag(), retry);
         }
         retry++;
-        LOG.info("sendNetworkDevice: sending {}", networkDevice);
+        LOG.debug("sendNetworkDevice: sending {}", networkDevice);
         try {
             apiClientProvider.send(
                     networkDevice,

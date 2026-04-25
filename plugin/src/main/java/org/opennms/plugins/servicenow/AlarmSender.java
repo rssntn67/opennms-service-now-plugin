@@ -51,6 +51,7 @@ public class AlarmSender {
     }
 
     public void enqueue(Alarm alarm, Node node, String parent) {
+        LOG.debug("enqueue: alarm: {}", alarm);
         queue.offer(new AlarmNode(alarm, node, parent));
     }
 
@@ -101,9 +102,9 @@ public class AlarmSender {
             LOG.warn("sendAlarm: skipping alarm with reduction key {}, too many retry {}", alarm.getReductionKey(), retry);
         }
         retry++;
-        LOG.info("sendAlarm: processing alarm with reduction key: {}, retry: {}", alarm.getReductionKey(), retry);
+        LOG.debug("sendAlarm: processing alarm with reduction key: {}, retry: {}", alarm.getReductionKey(), retry);
         Alert alert = AlarmForwarder.toAlert(alarmNode.alarm(), alarmNode.parent());
-        LOG.info("sendAlarm: converted to {}", alert);
+        LOG.debug("sendAlarm: converted to {}", alert);
 
         try {
             apiClientProvider.send(
