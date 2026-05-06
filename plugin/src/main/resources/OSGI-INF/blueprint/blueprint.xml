@@ -23,6 +23,7 @@
             <cm:property name="send.timeout" value="30000" />
             <cm:property name="service.initial.delay" value="5000" />
             <cm:property name="service.delay" value="3600000" />
+            <cm:property name="service.edge.delay" value="86400000" />
             <cm:property name="service.iteration" value="10" />
             <cm:property name="service.excluded.fs" value="NODO" />
             <cm:property name="metadata.context" value="requisition" />
@@ -88,7 +89,7 @@
     </bean>
 
     <!-- Build our forwarder bean -->
-    <bean id="alarmForwarder" class="org.opennms.plugins.servicenow.AlarmForwarder">
+    <bean id="alarmForwarder" class="org.opennms.plugins.servicenow.AlarmForwarder" destroy-method="destroy">
         <argument value="${filter}"/>
         <argument ref="alarmSender"/>
         <argument ref="edgeService"/>
@@ -132,6 +133,7 @@
         <argument ref="assetForwarder"/>
         <argument value="${service.initial.delay}"/>
         <argument value="${service.delay}"/>
+        <argument value="${service.edge.delay}"/>
     </bean>
     <service interface="org.opennms.integration.api.v1.health.HealthCheck" ref="pluginScheduler"/>
 

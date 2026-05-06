@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class EdgeService implements Runnable {
@@ -98,6 +100,8 @@ public class EdgeService implements Runnable {
         }
 
     }
+
+    private final CountDownLatch firstRunLatch = new CountDownLatch(1);
 
     private final Set<String> locations = Collections.synchronizedSet(new HashSet<>());
 
@@ -211,78 +215,86 @@ public class EdgeService implements Runnable {
         return this.nodes;
     }
 
+    public boolean awaitFirstRun(long timeout, TimeUnit unit) throws InterruptedException {
+        return firstRunLatch.await(timeout, unit);
+    }
+
     @Override
     public void run() {
         LOG.info("run: calling");
-        this.nodes.clear();
-        this.nodes = nodeDao.getNodes();
-        LOG.info("run: nodes size: {}", nodes.size());
-        this.gatewayToChildMap.clear();
-        this.gatewayToChildMap.putAll(populateGatewayMap(nodes));
-        LOG.debug("run: gatewayToChildMap size: {}", gatewayToChildMap.size());
+        try {
+            this.nodes.clear();
+            this.nodes = nodeDao.getNodes();
+            LOG.info("run: nodes size: {}", nodes.size());
+            this.gatewayToChildMap.clear();
+            this.gatewayToChildMap.putAll(populateGatewayMap(nodes));
+            LOG.debug("run: gatewayToChildMap size: {}", gatewayToChildMap.size());
 
-        locations.clear();
-        locations.addAll(populateLocations(nodes));
-        LOG.debug("run: locations size: {}", locations.size());
+            locations.clear();
+            locations.addAll(populateLocations(nodes));
+            LOG.debug("run: locations size: {}", locations.size());
 
-        gatewayToGatewayLabelMap.clear();
-        gatewayToGatewayLabelMap.putAll(populateGatewayToGatewayLabelMap(this.locations, new HashSet<>(gatewayToChildMap.keySet())));
-        LOG.debug("run: gatewayToGatewayLabelMap: {}", gatewayToGatewayLabelMap.size());
+            gatewayToGatewayLabelMap.clear();
+            gatewayToGatewayLabelMap.putAll(populateGatewayToGatewayLabelMap(this.locations, new HashSet<>(gatewayToChildMap.keySet())));
+            LOG.debug("run: gatewayToGatewayLabelMap: {}", gatewayToGatewayLabelMap.size());
 
-        Map<String, Set<String>> gatewayMap = populateGatewayLabelToSetLabelMap();
-        LOG.debug("run: gatewayMap size: {}", gatewayMap.size());
+            Map<String, Set<String>> gatewayMap = populateGatewayLabelToSetLabelMap();
+            LOG.debug("run: gatewayMap size: {}", gatewayMap.size());
 
-        //LLDP
-        Set<TopologyEdge> lldpEdges = edgeDao.getEdges(TopologyProtocol.LLDP);
-        LOG.debug("run: lldpEdges size: {}", lldpEdges.size());
-        Map<String, Set<String>> lldpEdgeMap = populateEdgeMap(lldpEdges);
-        LOG.debug("run: lldpEdgeMap size: {}", lldpEdgeMap.size());
-        edgeMap.remove(TopologyProtocol.LLDP);
-        edgeMap.put(TopologyProtocol.LLDP, lldpEdgeMap);
-        Map<String, String> lldpParentMap =
-                runDiscovery(
-                    lldpEdgeMap,
-                    gatewayMap
-                );
-        LOG.debug("run: found lldp parent map of size: {}", lldpParentMap.size());
-
-        //CDP
-        Set<TopologyEdge> cdpEdges = edgeDao.getEdges(TopologyProtocol.CDP);
-        LOG.debug("run: cdpEdges size: {}", cdpEdges.size());
-        Map<String, Set<String>> cdpEdgeMap = populateEdgeMap(cdpEdges);
-        LOG.debug("run:cdpEdgeMap size: {}", lldpEdgeMap.size());
-        edgeMap.remove(TopologyProtocol.CDP);
-        edgeMap.put(TopologyProtocol.CDP, cdpEdgeMap);
-        Map<String, String> cdpParentMap =
-                runDiscovery(
-                        cdpEdgeMap,
+            //LLDP
+            Set<TopologyEdge> lldpEdges = edgeDao.getEdges(TopologyProtocol.LLDP);
+            LOG.debug("run: lldpEdges size: {}", lldpEdges.size());
+            Map<String, Set<String>> lldpEdgeMap = populateEdgeMap(lldpEdges);
+            LOG.debug("run: lldpEdgeMap size: {}", lldpEdgeMap.size());
+            edgeMap.remove(TopologyProtocol.LLDP);
+            edgeMap.put(TopologyProtocol.LLDP, lldpEdgeMap);
+            Map<String, String> lldpParentMap =
+                    runDiscovery(
+                        lldpEdgeMap,
                         gatewayMap
-                );
-        LOG.debug("run: found cdp parent map of size: {}", cdpParentMap.size());
+                    );
+            LOG.debug("run: found lldp parent map of size: {}", lldpParentMap.size());
 
-        //BRIDGE
-        Set<TopologyEdge> bridgeEdges = edgeDao.getEdges(TopologyProtocol.BRIDGE);
-        LOG.debug("run: bridgeEdges size: {}", lldpEdges.size());
-        Map<String, Set<String>> bridgeEdgeMap = populateEdgeMap(bridgeEdges);
-        LOG.debug("run: bridgeEdgeMap size: {}", bridgeEdgeMap.size());
-        edgeMap.remove(TopologyProtocol.BRIDGE);
-        edgeMap.put(TopologyProtocol.BRIDGE, bridgeEdgeMap);
-        Map<String, String> bridgeParentMap =
-                runDiscovery(
-                        bridgeEdgeMap,
-                        gatewayMap
-                );
-        LOG.debug("run: found bridge parent map of size: {}", bridgeParentMap.size());
+            //CDP
+            Set<TopologyEdge> cdpEdges = edgeDao.getEdges(TopologyProtocol.CDP);
+            LOG.debug("run: cdpEdges size: {}", cdpEdges.size());
+            Map<String, Set<String>> cdpEdgeMap = populateEdgeMap(cdpEdges);
+            LOG.debug("run:cdpEdgeMap size: {}", lldpEdgeMap.size());
+            edgeMap.remove(TopologyProtocol.CDP);
+            edgeMap.put(TopologyProtocol.CDP, cdpEdgeMap);
+            Map<String, String> cdpParentMap =
+                    runDiscovery(
+                            cdpEdgeMap,
+                            gatewayMap
+                    );
+            LOG.debug("run: found cdp parent map of size: {}", cdpParentMap.size());
 
-        this.parentByGatewayKeyMap.clear();
-        lldpParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
-        LOG.debug("run: added lldp: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
-        cdpParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
-        LOG.debug("run: added cdp: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
-        bridgeParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
-        LOG.debug("run: added bridge: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
-        gatewayMap.forEach((parent, set) -> set.forEach(label -> this.parentByGatewayKeyMap.putIfAbsent(label,parent)));
-        LOG.debug("run: added gateways: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
+            //BRIDGE
+            Set<TopologyEdge> bridgeEdges = edgeDao.getEdges(TopologyProtocol.BRIDGE);
+            LOG.debug("run: bridgeEdges size: {}", lldpEdges.size());
+            Map<String, Set<String>> bridgeEdgeMap = populateEdgeMap(bridgeEdges);
+            LOG.debug("run: bridgeEdgeMap size: {}", bridgeEdgeMap.size());
+            edgeMap.remove(TopologyProtocol.BRIDGE);
+            edgeMap.put(TopologyProtocol.BRIDGE, bridgeEdgeMap);
+            Map<String, String> bridgeParentMap =
+                    runDiscovery(
+                            bridgeEdgeMap,
+                            gatewayMap
+                    );
+            LOG.debug("run: found bridge parent map of size: {}", bridgeParentMap.size());
+
+            this.parentByGatewayKeyMap.clear();
+            lldpParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
+            LOG.debug("run: added lldp: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
+            cdpParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
+            LOG.debug("run: added cdp: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
+            bridgeParentMap.forEach((key, value) -> this.parentByGatewayKeyMap.putIfAbsent(key, value));
+            LOG.debug("run: added bridge: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
+            gatewayMap.forEach((parent, set) -> set.forEach(label -> this.parentByGatewayKeyMap.putIfAbsent(label,parent)));
+            LOG.debug("run: added gateways: parentByGatewayMap {}", this.parentByGatewayKeyMap.size());
+        } finally {
+            firstRunLatch.countDown();
+        }
     }
 
     public Set<String> populateLocations(List<Node> nodes) {

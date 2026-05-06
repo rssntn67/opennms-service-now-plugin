@@ -21,6 +21,7 @@ public class PluginScheduler implements HealthCheck {
     private final AssetForwarder assetForwarder;
     private final long initialDelayL;
     private final long delayL;
+    private final long edgeDelayL;
 
     private ScheduledExecutorService executor;
     private ScheduledFuture<?> edgeFuture;
@@ -29,17 +30,21 @@ public class PluginScheduler implements HealthCheck {
     public PluginScheduler(EdgeService edgeService,
                            AssetForwarder assetForwarder,
                            String initialDelay,
-                           String delay) {
+                           String delay,
+                           String edgeDelay) {
         this.edgeService = edgeService;
         this.assetForwarder = assetForwarder;
         this.initialDelayL = Long.parseLong(initialDelay);
         this.delayL = Long.parseLong(delay);
+        this.edgeDelayL = Long.parseLong(edgeDelay);
     }
 
     public void init() {
-        LOG.info("PluginScheduler: starting scheduler with initialDelay={} delay={}", initialDelayL, delayL);
+        LOG.info("PluginScheduler: starting scheduler with initialDelay={} assetDelay={} edgeDelay={}", initialDelayL, delayL, edgeDelayL);
         executor = Executors.newScheduledThreadPool(1);
-        edgeFuture = executor.scheduleWithFixedDelay(edgeService, initialDelayL, delayL, TimeUnit.MILLISECONDS);
+        // Run EdgeService immediately so topology is ready before the first alarm snapshot is processed
+        executor.execute(edgeService);
+        edgeFuture = executor.scheduleWithFixedDelay(edgeService, edgeDelayL, edgeDelayL, TimeUnit.MILLISECONDS);
         assetFuture = executor.scheduleWithFixedDelay(assetForwarder, 30*initialDelayL, delayL, TimeUnit.MILLISECONDS);
         LOG.info("PluginScheduler: scheduler started");
     }

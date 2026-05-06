@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AlarmForwarder implements AlarmLifecycleListener {
@@ -56,6 +57,14 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     public void handleAlarmSnapshot(List<Alarm> alarms) {
         if (!starting.get())
             return;
+        try {
+            if (!edgeService.awaitFirstRun(60, TimeUnit.SECONDS)) {
+                LOG.warn("handleAlarmSnapshot: EdgeService not ready after 60s, processing with partial topology");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOG.warn("handleAlarmSnapshot: interrupted while waiting for EdgeService");
+        }
         LOG.debug("handleAlarmSnapshot: starting, got: {} alarms", alarms.size());
         alarms.stream().filter(this::isToForward).forEach(a-> alarmSender.enqueue(a, a.getNode(), edgeService.getParent(a.getNode())));
         starting.set(false);
@@ -63,6 +72,11 @@ public class AlarmForwarder implements AlarmLifecycleListener {
 
     @Override
     public void handleDeletedAlarm(int alarmId, String reductionKey) {
+    }
+
+    public void destroy() {
+        LOG.info("destroy: resetting alarm snapshot flag for next startup");
+        starting.set(true);
     }
 
     public static Alert toAlert(Alarm alarm, String parentNodeLabel) {
