@@ -15,8 +15,13 @@ Runtime properties are configured in `/opt/opennms/etc/org.opennms.plugins.servi
 | Node category for alarm forwarding. Only alarms from nodes with this category are forwarded.
 
 | `filter.accesspoint`
-| `Wifi`
+| `APOWM`
 | Node category identifying WiFi access points for asset synchronisation.
+
+| `location.accesspoint.sctt`
+| `AP-OWMi`
+| Location name used to classify access points as `SCTT` type (`TipoCollegamento`).
+  Access points whose node location matches this value are tagged as SCTT; all others are `CAMPUS`.
 
 | `filter.networkdevice.switch`
 | `Switch`

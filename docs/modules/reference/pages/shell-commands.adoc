@@ -199,8 +199,20 @@ List all gateway nodes identified in the topology map.
 
 Syntax: `opennms-service-now:get-gateways`
 
+=== get-parent-list
+
+Display a table of all node → parent mappings currently held in the topology map.
+
+Syntax: `opennms-service-now:get-parent-list`
+
 === edge-service-run
 
 Manually trigger an immediate topology discovery run.
 
 Syntax: `opennms-service-now:edge-service-run`
+
+=== asset-forwarder-run
+
+Manually trigger an immediate asset discovery and synchronisation run.
+
+Syntax: `opennms-service-now:asset-forwarder-run`

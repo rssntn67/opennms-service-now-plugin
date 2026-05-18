@@ -35,7 +35,7 @@ The `AssetForwarder` component periodically discovers network assets from the Op
 
 == Discovery and synchronisation
 
-. The `PluginScheduler` triggers `AssetForwarder` on a schedule (starts at `10 × service.initial.delay`, then every `service.delay`).
+. The `PluginScheduler` triggers `AssetForwarder` on a schedule (starts at `30 × service.initial.delay`, then every `service.delay`).
 . Nodes matching the configured categories are fetched from the OpenNMS node inventory.
 . Any node present in the cache but no longer in the inventory is automatically disabled (sent to ServiceNow with `installStatus = DISATTIVO`).
 . For each node, an `AccessPoint` or `NetworkDevice` DTO is built with location, IP address, parent-node label, and model data.
