@@ -13,7 +13,7 @@
             <cm:property name="asset.endpoint" value="minnovo/a2a/servicenow/opennms/1.0/sespa/comi_opennms/inserisci_aggiorna_asset" />
             <cm:property name="filter" value="Minnovo" />
             <cm:property name="filter.accesspoint" value="APOWM" />
-            <cm:property name="location.accesspoint.sctt" value="AP-OWMi" />
+            <cm:property name="location.accesspoint.sctt" value="Sctt" />
             <cm:property name="filter.networkdevice.switch" value="Switch" />
             <cm:property name="filter.networkdevice.firewall" value="Firewall" />
             <cm:property name="filter.networkdevice.modem.lte" value="LTE" />
