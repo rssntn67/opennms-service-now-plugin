@@ -123,6 +123,16 @@ Runtime properties are set in `/opt/opennms/etc/org.opennms.plugins.servicenow.c
 
 ## Deployment
 
+### Release Process
+
+1. Bump versions `X.Y.Z-SNAPSHOT` → `X.Y.Z` in `pom.xml`, `plugin/pom.xml`, `karaf-features/pom.xml`, `assembly/pom.xml`, `assembly/kar/pom.xml`, and `docs/antora.yml`
+2. Verify with `mvn test -pl plugin` (see note below on full reactor builds), commit as "Release X.Y.Z: bump versions and update documentation"
+3. `git tag -a vX.Y.Z -m "Release vX.Y.Z"`, bump versions to `X.Y+1.0-SNAPSHOT`, commit, `git push origin main && git push origin vX.Y.Z`
+4. `gh release create vX.Y.Z --title "OpenNMS Service Now Plugin X.Y.Z" --notes-file <file>`
+5. Build the kar from the tag: `git checkout vX.Y.Z` (detached HEAD) → `mvn clean install -DskipTests` → `gh release upload vX.Y.Z assembly/kar/target/opennms-service-now-plugin-X.Y.Z.kar` → `git checkout main`
+
+**Gotcha:** `mvn clean install` (with or without `-DskipTests`) can fail in sandboxed/no-network environments at the `karaf-features` module's `karaf-maven-plugin:verify` goal, unable to resolve `wrap:mvn:com.squareup.okhttp3/logging-interceptor`. This is a pre-existing environment issue, not a code regression — confirm via `git stash`/checkout of an older commit before assuming a real break.
+
 ```bash
 # Copy KAR to remote OpenNMS server
 scp assembly/kar/target/opennms-service-now-plugin-*.kar tecnico@opennms.campus.comune.milano.it:/home/tecnico/KAR-SERVICENOW
