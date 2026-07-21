@@ -19,7 +19,7 @@ Runtime properties are configured in `/opt/opennms/etc/org.opennms.plugins.servi
 | Node category identifying WiFi access points for asset synchronisation.
 
 | `location.accesspoint.sctt`
-| `AP-OWMi`
+| `Sctt`
 | Location name used to classify access points as `SCTT` type (`TipoCollegamento`).
   Access points whose node location matches this value are tagged as SCTT; all others are `CAMPUS`.
 
