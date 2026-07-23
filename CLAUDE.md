@@ -129,9 +129,12 @@ Runtime properties are set in `/opt/opennms/etc/org.opennms.plugins.servicenow.c
 2. Verify with `mvn test -pl plugin` (see note below on full reactor builds), commit as "Release X.Y.Z: bump versions and update documentation"
 3. `git tag -a vX.Y.Z -m "Release vX.Y.Z"`, bump versions (including `docs/antora.yml`) to `X.Y+1.0-SNAPSHOT`, commit, `git push origin main && git push origin vX.Y.Z`
 4. `gh release create vX.Y.Z --title "OpenNMS Service Now Plugin X.Y.Z" --notes-file <file>`
-5. Build the kar from the tag: `git checkout vX.Y.Z` (detached HEAD) → `mvn clean install -DskipTests` → `gh release upload vX.Y.Z assembly/kar/target/opennms-service-now-plugin-X.Y.Z.kar` → `git checkout main`
+5. Build the kar from the tag: `git checkout vX.Y.Z` (detached HEAD) → `mvn clean install -DskipTests` → upload the final artifact (**not** the intermediate `assembly/kar/target/kar-X.Y.Z.kar`) via `gh release upload vX.Y.Z assembly/kar/target/opennms-service-now-plugin-X.Y.Z.kar` → `git checkout main`
+6. Confirm the release is marked Latest — `gh release create` does not automatically move the Latest label off the previous release; run `gh release edit vX.Y.Z --latest` if `gh release list` doesn't show it
 
 **Gotcha:** `mvn clean install` (with or without `-DskipTests`) can fail in sandboxed/no-network environments at the `karaf-features` module's `karaf-maven-plugin:verify` goal, unable to resolve `wrap:mvn:com.squareup.okhttp3/logging-interceptor`. This is a pre-existing environment issue, not a code regression — confirm via `git stash`/checkout of an older commit before assuming a real break.
+
+**Gotcha:** `assembly/kar/target/` contains two similarly-named kar files after a build — `kar-X.Y.Z.kar` (intermediate, from the `karaf-features` module) and `opennms-service-now-plugin-X.Y.Z.kar` (the final assembled artifact). Only upload the latter to the release; the former is safe to delete.
 
 ```bash
 # Copy KAR to remote OpenNMS server
