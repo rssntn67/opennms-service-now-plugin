@@ -34,26 +34,20 @@ public class SendAssetCommand implements Action {
     @Argument(index = 3, name = "parentLabel", description = "Label of the parent node", required = true)
     public String parentLabel = "parentTestLabel";
 
-    @Argument(index = 4, name = "location", description = "Location of the asset: Default, sctt, or other", required = true)
+    @Argument(index = 4, name = "location", description = "Location of the asset: Default, or other", required = true)
     public String location = "Default";
 
     @Argument(index = 5, name = "ipAddress", description = "IP address of the asset", required = true)
     public String ipAddress = "10.0.0.1";
 
-    @Argument(index = 6, name = "category", description = "Type of asset: Wifi, Switch, Firewall, ModemLte, ModemXdsl", required = true)
-    public String category = "Switch";
+    @Argument(index = 6, name = "type", description = "Type of asset: AP, Switch, Firewall, ModemLte, ModemXdsl", required = true)
+    public String type = "Switch";
 
     @Override
     public Object execute() {
-        switch (location) {
-            case "Default", "other", "sctt":
-                break;
-            default:
-                System.out.println("Unknown location: " + location + ". Valid values: Default, sctt, other");
-        }
-        Node node = getNode(foreignSource, foreignId, nodeLabel, parentLabel, location, category);
-        switch (category) {
-            case "Wifi":
+        Node node = getNode(foreignSource, foreignId, nodeLabel, parentLabel, location, type);
+        switch (type) {
+            case "AP":
                 forwarder.sendAccessPoint(node, forwarder.toAccessPoint(node, parentLabel, ipAddress));
                 break;
             case "Switch":
@@ -69,7 +63,7 @@ public class SendAssetCommand implements Action {
                 forwarder.sendNetworkDevice(node, forwarder.toNetworkDevice(node, parentLabel, ipAddress, TipoApparato.MODEM_XDSL));
                 break;
             default:
-                System.out.println("Unknown category: " + category + ". Valid values: Wifi, Switch, Firewall, ModemLte, ModemXdsl");
+                System.out.println("Unknown type: " + type + ". Valid values: AP, Switch, Firewall, ModemLte, ModemXdsl");
         }
         return null;
     }

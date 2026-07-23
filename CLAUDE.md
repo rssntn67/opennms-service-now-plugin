@@ -63,7 +63,7 @@ All commands use `@Command(scope = "opennms-service-now", name = "...")`, implem
 - `send-up-alarm` — Sends a test nodeUp alarm to ServiceNow
 
 **Asset commands:**
-- `send-asset <foreignSource> <foreignId> <label> <parentLabel> <location> <ipAddress> <category>` — Sends a test asset (category: Wifi, Switch, Firewall, ModemLte, ModemXdsl)
+- `send-asset <foreignSource> <foreignId> <label> <parentLabel> <location> <ipAddress> <type>` — Sends a test asset (type: AP, Switch, Firewall, ModemLte, ModemXdsl)
 - `get-asset-cache` — Prints asset cache table (ForeignSource, ForeignId, Label, Type, Detail, ParentLabel)
 - `clear-asset-cache` — Wipes in-memory caches and deletes all cache files from disk
 - `disable-asset <foreignSource> <foreignId>` — Marks an asset as DISATTIVO in ServiceNow
