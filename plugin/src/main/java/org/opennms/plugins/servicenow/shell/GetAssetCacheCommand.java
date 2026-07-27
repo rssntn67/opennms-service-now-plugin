@@ -27,6 +27,7 @@ public class GetAssetCacheCommand implements Action {
                 .column(new Col("ForeignId"))
                 .column(new Col("Label"))
                 .column(new Col("Type"))
+                .column(new Col("Status"))
                 .column(new Col("Detail"))
                 .column(new Col("ParentLabel"));
 
@@ -38,6 +39,7 @@ public class GetAssetCacheCommand implements Action {
             row.addContent(AssetForwarder.getForeignIdFromAssetTag(assetTag));
             row.addContent(nd.getName());
             row.addContent("NetworkDevice");
+            row.addContent(nd.getInstallStatus().name());
             row.addContent(nd.getTipoApparato() != null ? nd.getTipoApparato().name() : "");
             row.addContent(nd.getParentalNode());
         });
@@ -50,6 +52,7 @@ public class GetAssetCacheCommand implements Action {
             row.addContent(AssetForwarder.getForeignIdFromAssetTag(assetTag));
             row.addContent(ap.getName());
             row.addContent("AccessPoint");
+            row.addContent(ap.getInstallStatus().name());
             row.addContent(ap.getTipoCollegamento() != null ? ap.getTipoCollegamento().name() : "");
             row.addContent(ap.getParentalNode());
         });
