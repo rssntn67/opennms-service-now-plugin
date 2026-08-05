@@ -15,8 +15,11 @@ public class AlarmForwarder implements AlarmLifecycleListener {
     private static final Logger LOG = LoggerFactory.getLogger(AlarmForwarder.class);
 
     public static final String ALARM_UEI_NODE_DOWN = "uei.opennms.org/nodes/nodeDown";
+    public static final String ALARM_UEI_NODE_UP = "uei.opennms.org/nodes/nodeUp";
     public static final String ALARM_UEI_INTERFACE_DOWN = "uei.opennms.org/nodes/interfaceDown";
+    public static final String ALARM_UEI_INTERFACE_UP = "uei.opennms.org/nodes/interfaceUp";
     public static final String ALARM_UEI_SERVICE_DOWN = "uei.opennms.org/nodes/nodeLostService";
+    public static final String ALARM_UEI_SERVICE_UP = "uei.opennms.org/nodes/nodeRegainedService";
 
     private final String filter;
     private final AlarmSender alarmSender;
@@ -88,13 +91,28 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         alert.setSeverity(toSeverity(alarm));
         alert.setMaintenance(false);
         alert.setDescription(alarm.getDescription().replace("<p>","").replace("</p>", "\n"));
-        alert.setMetricName(alarm.getReductionKey());
-        alert.setKey(alarm.getLogMessage());
         alert.setResource(alarm.getNode().getAssetRecord().getDescription());
         alert.setNode(alarm.getNode().getId().toString());
         alert.setAsset(alarm.getNode().getLabel());
         alert.setAlertTags(alarm.getNode().getCategories().toString());
-        alert.setStatus(toStatus(alarm));
+        Alert.Status status = toStatus(alarm);
+        if (status == Alert.Status.UP) {
+            if (alarm.getReductionKey().startsWith(ALARM_UEI_NODE_DOWN))
+                alert.setMetricName(ALARM_UEI_NODE_UP);
+            if (alarm.getReductionKey().startsWith(ALARM_UEI_INTERFACE_DOWN))
+                alert.setMetricName(ALARM_UEI_INTERFACE_UP);
+            if (alarm.getReductionKey().startsWith(ALARM_UEI_SERVICE_DOWN))
+                alert.setMetricName(ALARM_UEI_SERVICE_UP);
+        } else {
+            if (alarm.getReductionKey().startsWith(ALARM_UEI_NODE_DOWN))
+                alert.setMetricName(ALARM_UEI_NODE_DOWN);
+            if (alarm.getReductionKey().startsWith(ALARM_UEI_INTERFACE_DOWN))
+                alert.setMetricName(ALARM_UEI_INTERFACE_DOWN);
+            if (alarm.getReductionKey().startsWith(ALARM_UEI_SERVICE_DOWN))
+                alert.setMetricName(ALARM_UEI_SERVICE_DOWN);
+        }
+        alert.setStatus(status);
+        alert.setKey(status.getDesc());
         alert.setParentalNodeLabel(parentNodeLabel);
 
         return alert;

@@ -74,8 +74,8 @@ public class AlarmForwarderTest {
         assertThat(alert.getId(), equalTo(""+alarmId));
         assertThat(alert.getAsset(), equalTo(nodeLabel));
         assertThat(alert.getNode(), equalTo(""+nodeId));
-        assertThat(alert.getMetricName(), equalTo(AlarmForwarder.ALARM_UEI_NODE_DOWN+"::"+nodeId));
-        assertThat(alert.getKey(), equalTo(logMsg));
+        assertThat(alert.getMetricName(), equalTo(AlarmForwarder.ALARM_UEI_NODE_DOWN));
+        assertThat(alert.getKey(), equalTo(Alert.Status.DOWN.getDesc()));
         assertThat(alert.getDescription(), equalTo(description.replaceAll("<p>","").replaceAll("</p>","\n")));
         assertThat(alert.getSeverity(), equalTo(Alert.Severity.MAJOR));
         assertThat(alert.getStatus(), equalTo(Alert.Status.DOWN));

@@ -252,17 +252,23 @@ public class Alert {
     }
 
     public enum Status {
-        UP("1"),
-        DOWN("0");
+        UP("1","up"),
+        DOWN("0", "down");
 
         private final String text;
+        private final String desc;
 
-        Status(String text) {
+        Status(String text, String desc) {
             this.text = text;
+            this.desc = desc;
         }
 
         public String getText() {
             return text;
+        }
+
+        public String getDesc() {
+            return desc;
         }
 
         public static class Serializer extends StdSerializer<Status> {
