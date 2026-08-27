@@ -16,9 +16,9 @@ import org.opennms.plugins.servicenow.AlarmForwarder;
 import java.util.Date;
 import java.util.List;
 
-@Command(scope = "opennms-service-now", name = "send-up-alarm", description = "Send Test Alarm Up.")
+@Command(scope = "opennms-service-now", name = "send-interface-up-alarm", description = "Send Test Alarm Interface Up.")
 @Service
-public class SendUpAlarmCommand implements Action {
+public class SendInterfaceUpAlarmCommand implements Action {
 
     @Reference
     private AlarmForwarder forwarder;
@@ -26,41 +26,43 @@ public class SendUpAlarmCommand implements Action {
     @Argument(name = "alarmId", description = "Alarm Id", required = true)
     public int alarmId = -1000;
 
-    @Argument(index = 1, name = "nodeId", description = "nodeid of the asset", required = true)
+    @Argument(index = 1, name = "nodeId", description = "nodeId of the asset", required = true)
     public int nodeId = -1;
 
     @Argument(index = 2, name = "label", description = "label of the asset", required = true)
-    public String nodeLabel = "testLabel";
+    public String nodeLabel = "TestLabel";
 
     @Argument(index = 3, name = "parentLabel", description = "label  of parent of the asset", required = true)
     public String parentLabel = "parentTestLabel";
 
+    @Argument(index = 4, name = "ipaddr", description = "ip address of the asset", required = true)
+    public String ipaddr = "10.10.10.10";
+
     @Override
     public Object execute() {
-        forwarder.handleNewOrUpdatedAlarm(getAlarm(this.alarmId, this.nodeId, this.nodeLabel, this.parentLabel));
+        forwarder.handleNewOrUpdatedAlarm(getAlarm(this.alarmId, this.nodeId, this.nodeLabel, this.parentLabel, this.ipaddr));
         return null;
     }
 
-    public static Alarm getAlarm(int alarmId, int nodeId, String nodeLabel, String parentLabel) {
+    public static Alarm getAlarm(int alarmId, int nodeId, String nodeLabel, String parentLabel, String ipaddr) {
         return ImmutableAlarm.newBuilder()
                 .setId(alarmId)
-                .setReductionKey(AlarmForwarder.ALARM_UEI_NODE_DOWN+":"+nodeId)
+                .setReductionKey(AlarmForwarder.ALARM_UEI_INTERFACE_DOWN+"::"+nodeId+":"+ipaddr)
                 .setSeverity(Severity.CLEARED)
-                .setDescription("<p>Node " +
-                        nodeLabel +
-                        " which was previously down is" +
-                        " now up.</p> <p>This event is generated when node" +
-                        " outage processing determines that all interfaces on the node" +
-                        " are up.</p> <p>This event will cause any active" +
-                        " outages associated with this node to be cleared.</p>")
-                .setLogMessage("Node "+nodeLabel+" is up.")
+                .setDescription("<p>The interface " + ipaddr +" which was previously down" +
+                        " is now up.</p> <p>This event is generated when" +
+                        " node outage processing determines that the critical service" +
+                        " or all services on the interface are restored. </p>" +
+                        " <p>This event will cause any active outages associated" +
+                        " with this interface to be cleared.</p>")
+                .setLogMessage("Interface "+ipaddr+" is up.")
                 .setFirstEventTime(new Date())
                 .setLastEventTime(new Date())
                 .setNode(ImmutableNode.newBuilder()
                         .setId(nodeId)
                         .setLocation("Asia")
                         .setLabel(nodeLabel)
-                        .setCategories(List.of("CategoryA", "CategoryB", "Minnovo", "MinnovoTest"))
+                        .setCategories(List.of("CategoryA", "CategoryB", "Minnovo","MinnovoTest"))
                         .addMetaData(ImmutableMetaData.newBuilder().setContext("requisition")
                                 .setKey("parent")
                                 .setValue(parentLabel).build())
