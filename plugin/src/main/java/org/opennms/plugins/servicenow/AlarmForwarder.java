@@ -96,26 +96,39 @@ public class AlarmForwarder implements AlarmLifecycleListener {
         alert.setAsset(alarm.getNode().getLabel());
         alert.setAlertTags(alarm.getNode().getCategories().toString());
         Alert.Status status = toStatus(alarm);
-        if (status == Alert.Status.UP) {
-            if (alarm.getReductionKey().startsWith(ALARM_UEI_NODE_DOWN))
-                alert.setMetricName(ALARM_UEI_NODE_UP);
-            if (alarm.getReductionKey().startsWith(ALARM_UEI_INTERFACE_DOWN))
-                alert.setMetricName(ALARM_UEI_INTERFACE_UP);
-            if (alarm.getReductionKey().startsWith(ALARM_UEI_SERVICE_DOWN))
-                alert.setMetricName(ALARM_UEI_SERVICE_UP);
-        } else {
-            if (alarm.getReductionKey().startsWith(ALARM_UEI_NODE_DOWN))
-                alert.setMetricName(ALARM_UEI_NODE_DOWN);
-            if (alarm.getReductionKey().startsWith(ALARM_UEI_INTERFACE_DOWN))
-                alert.setMetricName(ALARM_UEI_INTERFACE_DOWN);
-            if (alarm.getReductionKey().startsWith(ALARM_UEI_SERVICE_DOWN))
-                alert.setMetricName(ALARM_UEI_SERVICE_DOWN);
-        }
+        Alert.AlertType type = toAlertType(alarm);
+        alert.setMetricName(toMetricName(alarm, status));
         alert.setStatus(status);
-        alert.setKey(status.getDesc());
+        alert.setKey(type.getText()+ " " + status.getDesc());
         alert.setParentalNodeLabel(parentNodeLabel);
 
         return alert;
+    }
+
+    private static String toMetricName(Alarm alarm, Alert.Status status) {
+        if (status == Alert.Status.UP) {
+            if (alarm.getReductionKey().startsWith(ALARM_UEI_NODE_DOWN))
+                return ALARM_UEI_NODE_UP;
+            if (alarm.getReductionKey().startsWith(ALARM_UEI_INTERFACE_DOWN))
+                return ALARM_UEI_INTERFACE_UP;
+            if (alarm.getReductionKey().startsWith(ALARM_UEI_SERVICE_DOWN))
+               return ALARM_UEI_SERVICE_UP;
+        } else {
+            if (alarm.getReductionKey().startsWith(ALARM_UEI_NODE_DOWN))
+                return ALARM_UEI_NODE_DOWN;
+            if (alarm.getReductionKey().startsWith(ALARM_UEI_INTERFACE_DOWN))
+                return ALARM_UEI_INTERFACE_DOWN;
+            if (alarm.getReductionKey().startsWith(ALARM_UEI_SERVICE_DOWN))
+                return ALARM_UEI_SERVICE_DOWN;
+        }
+        return null;
+    }
+
+    private static Alert.AlertType toAlertType(Alarm alarm) {
+        if (alarm.getReductionKey().startsWith(ALARM_UEI_NODE_DOWN) ||
+                alarm.getReductionKey().startsWith(ALARM_UEI_NODE_UP))
+            return Alert.AlertType.NODE;
+        return Alert.AlertType.INTERFACE;
     }
 
     private static Alert.Severity toSeverity(Alarm alarm) {

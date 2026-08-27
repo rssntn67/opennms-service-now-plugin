@@ -283,4 +283,20 @@ public class Alert {
         }
     }
 
+    public enum AlertType {
+        NODE("Node"),
+        INTERFACE("Interface");
+
+        private final String text;
+
+        AlertType(String text) {
+            this.text = text;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+    }
+
 }
