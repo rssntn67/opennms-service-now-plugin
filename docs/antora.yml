@@ -1,5 +1,5 @@
 name: servicenow
-version: '2.0.6'
+version: '2.0.7-SNAPSHOT'
 title: OpenNMS ServiceNow Plugin
 nav:
   - modules/ROOT/nav.adoc
