@@ -59,8 +59,12 @@ Key components in `org.opennms.plugins.servicenow`:
 All commands use `@Command(scope = "opennms-service-now", name = "...")`, implement `Action`, inject OSGi services via `@Reference`, and use `ShellTable` for formatted output.
 
 **Alarm commands:**
-- `send-down-alarm` — Sends a test nodeDown alarm to ServiceNow
-- `send-up-alarm` — Sends a test nodeUp alarm to ServiceNow
+- `send-node-down-alarm <alarmId> <nodeId> <label> <parentLabel>` — Sends a test nodeDown alarm (MAJOR)
+- `send-node-up-alarm <alarmId> <nodeId> <label> <parentLabel>` — Clears the test nodeDown alarm (CLEARED)
+- `send-interface-down-alarm <alarmId> <nodeId> <label> <parentLabel> <ipaddr>` — Sends a test interfaceDown alarm (MINOR)
+- `send-interface-up-alarm <alarmId> <nodeId> <label> <parentLabel> <ipaddr>` — Clears the test interfaceDown alarm
+- `send-service-down-alarm <alarmId> <nodeId> <label> <parentLabel> <ipaddr>` — Sends a test nodeLostService/ICMP alarm (MINOR)
+- `send-service-up-alarm <alarmId> <nodeId> <label> <parentLabel> <ipaddr>` — Clears the test nodeLostService/ICMP alarm
 
 **Asset commands:**
 - `send-asset <foreignSource> <foreignId> <label> <parentLabel> <location> <ipAddress> <type>` — Sends a test asset (type: AP, Switch, Firewall, ModemLte, ModemXdsl)

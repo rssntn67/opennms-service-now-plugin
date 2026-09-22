@@ -78,12 +78,17 @@ admin@opennms()> opennms-service-now:get-gateways
 
 == Testing alarm forwarding
 
-You can send a test alarm to ServiceNow without waiting for a real network event:
+You can send a test alarm to ServiceNow without waiting for a real network event.
+Each forwarded alarm type has its own pair of commands, so you can exercise them individually:
 
 [source, console]
 ----
-admin@opennms()> opennms-service-now:send-down-alarm
-admin@opennms()> opennms-service-now:send-up-alarm
+admin@opennms()> opennms-service-now:send-node-down-alarm <alarmId> <nodeId> <label> <parentLabel>
+admin@opennms()> opennms-service-now:send-node-up-alarm <alarmId> <nodeId> <label> <parentLabel>
+admin@opennms()> opennms-service-now:send-interface-down-alarm <alarmId> <nodeId> <label> <parentLabel> <ipaddr>
+admin@opennms()> opennms-service-now:send-interface-up-alarm <alarmId> <nodeId> <label> <parentLabel> <ipaddr>
+admin@opennms()> opennms-service-now:send-service-down-alarm <alarmId> <nodeId> <label> <parentLabel> <ipaddr>
+admin@opennms()> opennms-service-now:send-service-up-alarm <alarmId> <nodeId> <label> <parentLabel> <ipaddr>
 ----
 
 == Result events

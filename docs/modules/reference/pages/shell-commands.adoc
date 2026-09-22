@@ -65,17 +65,68 @@ Syntax: `opennms-service-now:delete-connection`
 
 == Alarm commands
 
-=== send-down-alarm
+There is one pair of commands (down and up) for each alarm type handled by the alarm forwarder.
+The `down` commands send an alarm with severity `MAJOR` (node) or `MINOR` (interface and service);
+the `up` commands send an alarm with the same reduction key and severity `CLEARED`.
+
+=== send-node-down-alarm
 
 Send a test `nodeDown` alarm to ServiceNow.
 
-Syntax: `opennms-service-now:send-down-alarm`
+Syntax: `opennms-service-now:send-node-down-alarm alarmId nodeId label parentLabel`
 
-=== send-up-alarm
+=== send-node-up-alarm
 
-Send a test `nodeUp` alarm to ServiceNow.
+Clear the test `nodeDown` alarm in ServiceNow.
 
-Syntax: `opennms-service-now:send-up-alarm`
+Syntax: `opennms-service-now:send-node-up-alarm alarmId nodeId label parentLabel`
+
+=== send-interface-down-alarm
+
+Send a test `interfaceDown` alarm to ServiceNow.
+
+Syntax: `opennms-service-now:send-interface-down-alarm alarmId nodeId label parentLabel ipaddr`
+
+=== send-interface-up-alarm
+
+Clear the test `interfaceDown` alarm in ServiceNow.
+
+Syntax: `opennms-service-now:send-interface-up-alarm alarmId nodeId label parentLabel ipaddr`
+
+=== send-service-down-alarm
+
+Send a test `nodeLostService` alarm (ICMP) to ServiceNow.
+
+Syntax: `opennms-service-now:send-service-down-alarm alarmId nodeId label parentLabel ipaddr`
+
+=== send-service-up-alarm
+
+Clear the test `nodeLostService` alarm (ICMP) in ServiceNow.
+
+Syntax: `opennms-service-now:send-service-up-alarm alarmId nodeId label parentLabel ipaddr`
+
+.Arguments
+[options="header, autowidth", cols="2,3"]
+|===
+| Argument
+| Description
+
+| `alarmId`
+| Alarm ID to use in the generated alarm
+
+| `nodeId`
+| Node ID of the asset
+
+| `label`
+| Node label of the asset
+
+| `parentLabel`
+| Node label of the parent of the asset
+
+| `ipaddr`
+| IP address of the asset (interface and service commands only)
+
+|===
 
 == Asset commands
 
