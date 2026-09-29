@@ -119,16 +119,21 @@ public class AssetForwarder implements Runnable {
             sendAccessPoint(node, ap);
             return;
         }
-        NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.SWITCH);
-        if (node.getCategories().contains(filterFirewall)) {
-            nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.FIREWALL);
+        TipoApparato tipoApparato;
+        if (node.getCategories().contains(filterSwitch)) {
+            tipoApparato = TipoApparato.SWITCH;
+        } else if (node.getCategories().contains(filterFirewall)) {
+            tipoApparato = TipoApparato.FIREWALL;
         } else if (node.getCategories().contains(filterModemLte)) {
-            nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_LTE);
+            tipoApparato = TipoApparato.MODEM_LTE;
         } else if (node.getCategories().contains(filterModemXdsl)) {
-            nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_XDSL);
-        } else if (!node.getCategories().contains(filterSwitch)) {
-            LOG.warn("sendAsset: no match category for node {}, using {}", node.getId(), filterSwitch);
+            tipoApparato = TipoApparato.MODEM_XDSL;
+        } else {
+            LOG.info("sendAsset: no match category for node {}", node.getId());
+            eventForwarder.sendAssetFailed(node.getId(), "No matching category found");
+            return;
         }
+        NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, tipoApparato);
         if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
             LOG.debug("sendAsset: NetworkDevice unchanged asset: {}", nd.getAssetTag());
             return;
