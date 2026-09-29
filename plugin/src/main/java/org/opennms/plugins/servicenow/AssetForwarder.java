@@ -129,7 +129,7 @@ public class AssetForwarder implements Runnable {
         } else if (node.getCategories().contains(filterModemXdsl)) {
             tipoApparato = TipoApparato.MODEM_XDSL;
         } else {
-            LOG.info("sendAsset: no match category for node {}, defaulting to {}", node.getId(), TipoApparato.SWITCH);
+            LOG.warn("sendAsset: no match category for node {}, defaulting to {}", node.getId(), TipoApparato.SWITCH);
             tipoApparato = TipoApparato.SWITCH;
         }
         NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, tipoApparato);
