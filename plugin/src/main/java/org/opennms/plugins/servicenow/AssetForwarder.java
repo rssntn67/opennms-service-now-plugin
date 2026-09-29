@@ -119,44 +119,21 @@ public class AssetForwarder implements Runnable {
             sendAccessPoint(node, ap);
             return;
         }
-        if (node.getCategories().contains(filterSwitch)) {
-            NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.SWITCH);
-            if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
-                LOG.debug("sendAsset: NetworkDevice Switch skipping unchanged asset: {}", nd.getAssetTag());
-                return;
-            }
-            sendNetworkDevice(node, nd);
-            return;
-        }
+        NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.SWITCH);
         if (node.getCategories().contains(filterFirewall)) {
-            NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.FIREWALL);
-            if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
-                LOG.debug("sendAsset: NetworkDevice Firewall skipping unchanged asset: {}", nd.getAssetTag());
-                return;
-            }
-            sendNetworkDevice(node, nd);
+            nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.FIREWALL);
+        } else if (node.getCategories().contains(filterModemLte)) {
+            nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_LTE);
+        } else if (node.getCategories().contains(filterModemXdsl)) {
+            nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_XDSL);
+        } else if (!node.getCategories().contains(filterSwitch)) {
+            LOG.warn("sendAsset: no match category for node {}, using {}", node.getId(), filterSwitch);
+        }
+        if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
+            LOG.debug("sendAsset: NetworkDevice unchanged asset: {}", nd.getAssetTag());
             return;
         }
-        if (node.getCategories().contains(filterModemLte)) {
-            NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_LTE);
-            if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
-                LOG.debug("sendAsset: NetworkDevice Modem LTE skipping unchanged asset: {}", nd.getAssetTag());
-                return;
-            }
-            sendNetworkDevice(node, nd);
-            return;
-        }
-        if (node.getCategories().contains(filterModemXdsl)) {
-            NetworkDevice nd = toNetworkDevice(node, edgeService.getParent(node), ipaddress, TipoApparato.MODEM_XDSL);
-            if (assetSender.isUnchanged(nd.getAssetTag(), nd.hashCode())) {
-                LOG.debug("sendAsset: NetworkDevice Model XDSL skipping unchanged asset: {}", nd.getAssetTag());
-                return;
-            }
-            sendNetworkDevice(node, nd);
-            return;
-        }
-        LOG.info("sendAsset: no match category for node {}", node.getId());
-        eventForwarder.sendAssetFailed(node.getId(), "No matching category found");
+        sendNetworkDevice(node, nd);
     }
 
     public void sendAccessPoint(Node node, AccessPoint accessPoint) {
