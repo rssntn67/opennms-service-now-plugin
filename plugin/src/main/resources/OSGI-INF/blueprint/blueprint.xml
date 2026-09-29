@@ -14,7 +14,7 @@
             <cm:property name="filter" value="Minnovo" />
             <cm:property name="filter.accesspoint" value="APOWM" />
             <cm:property name="location.accesspoint.sctt" value="Sctt" />
-            <cm:property name="filter.networkdevice.switch" value="Switch" />
+            <cm:property name="filter.networkdevice.switch" value="SCTTMINNOVO" />
             <cm:property name="filter.networkdevice.firewall" value="Firewall" />
             <cm:property name="filter.networkdevice.modem.lte" value="LTE" />
             <cm:property name="filter.networkdevice.modem.xdsl" value="XDSL" />
